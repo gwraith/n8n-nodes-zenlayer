@@ -3,6 +3,8 @@ import {
     INodeExecutionData,
     INodeType,
     INodeTypeDescription,
+    NodeApiError,
+    NodeOperationError,
 } from 'n8n-workflow';
 
 
@@ -203,14 +205,17 @@ export class Zenlayer implements INodeType {
         const apiKey = credentials.apiKey;
 
         if (!baseURL || !apiKey) {
-            throw new Error('Zenlayer API credentials not configured properly.');
+            throw new NodeOperationError(
+                this.getNode(),
+                'Zenlayer API credentials not configured properly.',
+            );
         }
 
         for (let i = 0; i < items.length; i++) {
             const model = this.getNodeParameter('model', i) as string;
 
             const promptCollection = this.getNodeParameter('prompt', i, {}) as {
-                messages?: Array<{ role: string; content: string }>
+                messages?: Array<{ role: string; content: string }>;
             };
 
             const messages = promptCollection.messages ?? [];
@@ -236,7 +241,7 @@ export class Zenlayer implements INodeType {
                         method: 'POST',
                         url: `${baseURL}/chat/completions`,
                         headers: {
-                            'Authorization': `Bearer ${apiKey}`,
+                            Authorization: `Bearer ${apiKey}`,
                             'Content-Type': 'application/json',
                         },
                         body: {
@@ -258,8 +263,12 @@ export class Zenlayer implements INodeType {
                 } catch (error) {
                     attempt++;
                     if (attempt > maxRetries) {
-                        throw new Error(
-                            `Zenlayer API request failed after ${maxRetries} retries: ${error.message}`,
+                        throw new NodeApiError(
+                            this.getNode(),
+                            error,
+                            {
+                                message: `Zenlayer API request failed after ${maxRetries} retries.`,
+                            },
                         );
                     }
                 }
@@ -272,4 +281,5 @@ export class Zenlayer implements INodeType {
 
         return this.prepareOutputData(returnData);
     }
+
 }
