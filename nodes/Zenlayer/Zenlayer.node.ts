@@ -17,7 +17,7 @@ export class Zenlayer implements INodeType {
         version: [1],
         description: 'Consume Zenlayer AI Gateway APIs',
         defaults: {
-            name: 'Zenlayer AI',
+            name: 'Zenlayer',
         },
         usableAsTool: true,
         codex: {
