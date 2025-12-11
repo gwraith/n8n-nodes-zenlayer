@@ -90,6 +90,17 @@ export class Zenlayer implements INodeType {
                 },
             },
             {
+                displayName: 'Mode',
+                name: 'mode',
+                type: 'options',
+                default: 'chat',
+                options: [
+                    { name: 'Chat Completions', value: 'chat' },
+                    { name: 'Responses API', value: 'responses' },
+                ],
+                description: 'Choose which Zenlayer endpoint to call',
+            },
+            {
                 displayName: 'Prompt',
                 name: 'prompt',
                 type: 'fixedCollection',
@@ -148,6 +159,18 @@ export class Zenlayer implements INodeType {
                 default: {},
                 options: [
                     {
+                        displayName: 'Background',
+                        name: 'background',
+                        type: 'boolean',
+                        default: false,
+                        description: 'Run request in background (Responses API only)',
+                        displayOptions: {
+                            show: {
+                                '/mode': ['responses'],
+                            },
+                        },
+                    },
+                    {
                         displayName: 'Max Retries',
                         name: 'maxRetries',
                         type: 'number',
@@ -160,6 +183,18 @@ export class Zenlayer implements INodeType {
                         default: -1,
                     },
                     {
+                        displayName: 'Parallel Tool Calls',
+                        name: 'parallelToolCalls',
+                        type: 'boolean',
+                        default: true,
+                        description: 'Enable parallel tool calls (only for Responses API)',
+                        displayOptions: {
+                            show: {
+                                '/mode': ['responses'],
+                            },
+                        },
+                    },
+                    {
                         displayName: 'Response Format',
                         name: 'responseFormat',
                         type: 'options',
@@ -168,6 +203,18 @@ export class Zenlayer implements INodeType {
                             { name: 'Text', value: 'text' },
                             { name: 'JSON', value: 'json_object' },
                         ],
+                    },
+                    {
+                        displayName: 'Store',
+                        name: 'store',
+                        type: 'boolean',
+                        default: true,
+                        description: 'Whether to store the response in the server (only for Responses API)',
+                        displayOptions: {
+                            show: {
+                                '/mode': ['responses'],
+                            },
+                        },
                     },
                     {
                         displayName: 'Temperature',
@@ -198,20 +245,16 @@ export class Zenlayer implements INodeType {
         const items = this.getInputData();
         const returnData: INodeExecutionData[] = [];
 
-        // Credential 信息
         const credentials = await this.getCredentials('zenlayerApi');
-
         const baseURL = credentials.url;
         const apiKey = credentials.apiKey;
 
         if (!baseURL || !apiKey) {
-            throw new NodeOperationError(
-                this.getNode(),
-                'Zenlayer API credentials not configured properly.',
-            );
+            throw new NodeOperationError(this.getNode(), 'Zenlayer API credentials not configured properly.');
         }
 
         for (let i = 0; i < items.length; i++) {
+            const mode = this.getNodeParameter('mode', i, 'chat') as string; // ← 新增
             const model = this.getNodeParameter('model', i) as string;
 
             const promptCollection = this.getNodeParameter('prompt', i, {}) as {
@@ -221,12 +264,15 @@ export class Zenlayer implements INodeType {
             const messages = promptCollection.messages ?? [];
 
             const options = this.getNodeParameter('options', i, {}) as {
+                background?: boolean;
                 maxRetries?: number;
                 maxTokens?: number;
                 responseFormat?: string;
                 temperature?: number;
                 timeout?: number;
                 topP?: number;
+                parallelToolCalls?: boolean;
+                store?: boolean;
             };
 
             const maxRetries = options.maxRetries ?? 2;
@@ -235,26 +281,55 @@ export class Zenlayer implements INodeType {
             let attempt = 0;
             let responseData;
 
+            // 根据 mode 拼接 API 路径与 body
+            const endpoint = mode === 'responses' ? '/responses' : '/chat/completions';
+
+            let body: any;
+            if (mode === 'chat') {
+                body = {
+                    model,
+                    messages,
+                    max_tokens: options.maxTokens === -1 ? undefined : options.maxTokens,
+                    temperature: options.temperature,
+                    top_p: options.topP,
+                    response_format: options.responseFormat === 'json_object' ? { type: 'json_object' } : undefined,
+                };
+            } else if (mode === 'responses') {
+                body = {
+                    model,
+                    input: [
+                        {
+                            role: 'user',
+                            content: [
+                                {
+                                    type: 'input_text',
+                                    text: messages.map(m => m.content).join('\n'),
+                                },
+                            ],
+                        },
+                    ],
+                    max_tokens: options.maxTokens === -1 ? undefined : options.maxTokens,
+                    temperature: options.temperature,
+                    top_p: options.topP,
+                    response_format: options.responseFormat === 'json_object' ? { type: 'json_object' } : undefined,
+                    parallel_tool_calls: options.parallelToolCalls ?? true,
+                    store: options.store ?? true,
+                    background: options.background ?? false,
+                };
+            }
+
+            // =====================================================//
+
             while (attempt <= maxRetries) {
                 try {
                     responseData = await this.helpers.httpRequest({
                         method: 'POST',
-                        url: `${baseURL}/chat/completions`,
+                        url: `${baseURL}${endpoint}`,
                         headers: {
                             Authorization: `Bearer ${apiKey}`,
                             'Content-Type': 'application/json',
                         },
-                        body: {
-                            model,
-                            messages,
-                            max_tokens: options.maxTokens === -1 ? undefined : options.maxTokens,
-                            temperature: options.temperature,
-                            top_p: options.topP,
-                            response_format:
-                                options.responseFormat === 'json_object'
-                                    ? { type: 'json_object' }
-                                    : undefined,
-                        },
+                        body,
                         timeout,
                         json: true,
                     });
@@ -263,23 +338,18 @@ export class Zenlayer implements INodeType {
                 } catch (error) {
                     attempt++;
                     if (attempt > maxRetries) {
-                        throw new NodeApiError(
-                            this.getNode(),
-                            error,
-                            {
-                                message: `Zenlayer API request failed after ${maxRetries} retries.`,
-                            },
-                        );
+                        throw new NodeApiError(this.getNode(), error, {
+                            message: `Zenlayer API request failed after ${maxRetries} retries.`,
+                        });
                     }
                 }
             }
 
-            returnData.push({
-                json: responseData,
-            });
+            returnData.push({ json: responseData });
         }
 
         return this.prepareOutputData(returnData);
     }
+
 
 }
