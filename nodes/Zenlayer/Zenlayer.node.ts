@@ -101,6 +101,56 @@ export class Zenlayer implements INodeType {
                 description: 'Choose which Zenlayer endpoint to call',
             },
             {
+                displayName: 'Tools',
+                name: 'tools',
+                type: 'fixedCollection',
+                typeOptions: {
+                    sortable: true,
+                    multipleValues: true,
+                },
+                placeholder: 'Add Tool',
+                default: {},
+                description: 'Define function tools for the model to call',
+                options: [
+                    {
+                        displayName: 'Tool',
+                        name: 'tool',
+                        values: [
+                            {
+                                displayName: 'Name',
+                                name: 'name',
+                                type: 'string',
+                                default: '',
+                            },
+                            {
+                                displayName: 'Description',
+                                name: 'description',
+                                type: 'string',
+                                default: '',
+                            },
+                            {
+                                displayName: 'Parameters (JSON Schema)',
+                                name: 'parameters',
+                                type: 'json',
+                                default: {},
+                                description: 'JSON Schema describing the function parameters',
+                            },
+                        ],
+                    },
+                ],
+            },
+            {
+                displayName: 'Tool Choice',
+                name: 'toolChoice',
+                type: 'options',
+                default: 'auto',
+                options: [
+                    { name: 'Auto', value: 'auto' },
+                    { name: 'None', value: 'none' },
+                ],
+                description: 'Preference for tool usage during inference',
+            },
+            {
                 displayName: 'Prompt',
                 name: 'prompt',
                 type: 'fixedCollection',
@@ -257,6 +307,17 @@ export class Zenlayer implements INodeType {
             const mode = this.getNodeParameter('mode', i, 'chat') as string; // ← 新增
             const model = this.getNodeParameter('model', i) as string;
 
+            const toolsCollection = this.getNodeParameter('tools', i, {}) as {
+                tool?: Array<{
+                    type?: string;
+                    name?: string;
+                    description?: string;
+                    parameters?: Record<string, any>;
+                    strict?: boolean;
+                }>;
+            };
+            const toolChoice = this.getNodeParameter('toolChoice', i, 'auto') as string;
+
             const promptCollection = this.getNodeParameter('prompt', i, {}) as {
                 messages?: Array<{ role: string; content: string }>;
             };
@@ -293,6 +354,27 @@ export class Zenlayer implements INodeType {
                     temperature: options.temperature,
                     top_p: options.topP,
                     response_format: options.responseFormat === 'json_object' ? { type: 'json_object' } : undefined,
+                    tools: (toolsCollection.tool ?? []).map(t => ({
+                        type: t.type ?? 'function',
+                        name: t.name,
+                        description: t.description,
+                        parameters: (() => {
+                            const p = t.parameters;
+                            if (typeof p === 'string') {
+                                try {
+                                    return JSON.parse(p);
+                                } catch (e) {
+                                    throw new NodeOperationError(
+                                        this.getNode(),
+                                        `Invalid JSON in tool parameters: ${p}`
+                                    );
+                                }
+                            }
+                            return p;
+                        })(),
+                        strict: t.strict ?? true,
+                    })),
+                    tool_choice: toolChoice === 'none' ? 'none' : 'auto',
                 };
             } else if (mode === 'responses') {
                 body = {
@@ -315,6 +397,27 @@ export class Zenlayer implements INodeType {
                     parallel_tool_calls: options.parallelToolCalls ?? true,
                     store: options.store ?? true,
                     background: options.background ?? false,
+                    tools: (toolsCollection.tool ?? []).map(t => ({
+                        type: t.type ?? 'function',
+                        name: t.name,
+                        description: t.description,
+                        parameters: (() => {
+                            const p = t.parameters;
+                            if (typeof p === 'string') {
+                                try {
+                                    return JSON.parse(p);
+                                } catch (e) {
+                                    throw new NodeOperationError(
+                                        this.getNode(),
+                                        `Invalid JSON in tool parameters: ${p}`
+                                    );
+                                }
+                            }
+                            return p;
+                        })(),
+                        strict: t.strict ?? true,
+                    })),
+                    tool_choice: toolChoice === 'none' ? 'none' : 'auto',
                 };
             }
 
