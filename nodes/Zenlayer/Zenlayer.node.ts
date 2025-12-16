@@ -158,7 +158,7 @@ export class Zenlayer implements INodeType {
                     sortable: true,
                     multipleValues: true,
                 },
-                placeholder: 'Add Message',
+                placeholder: 'Add Input',
                 default: {},
                 options: [
                     {
@@ -191,6 +191,52 @@ export class Zenlayer implements INodeType {
                                 type: 'string',
                                 default: '',
                             },
+                        ],
+                    },
+                    {
+                        displayName: 'Function Call',
+                        name: 'functionCall',
+                        values: [
+                            {
+                                displayName: 'Name',
+                                name: 'name',
+                                type: 'string',
+                                default: '',
+                            },
+                            {
+                                displayName: 'Arguments',
+                                name: 'arguments',
+                                type: 'string',
+                                default: '',
+                                description: 'JSON arguments for the function call',
+                            },
+                            {
+                                displayName: 'Call ID',
+                                name: 'callId',
+                                type: 'string',
+                                default: '',
+                                description: 'Unique identifier for the function call',
+                            },
+                        ],
+                    },
+                    {
+                        displayName: 'Function Call Output',
+                        name: 'functionCallOutput',
+                        values: [
+                            {
+                                displayName: 'Call ID',
+                                name: 'callId',
+                                type: 'string',
+                                default: '',
+                                description: 'Unique identifier for the function call output',
+                            },
+                            {
+                                displayName: 'Output',
+                                name: 'output',
+                                type: 'string',
+                                default: '',
+                                description: 'Output content from the function call',
+                            }
                         ],
                     },
                 ],
@@ -320,9 +366,72 @@ export class Zenlayer implements INodeType {
 
             const promptCollection = this.getNodeParameter('prompt', i, {}) as {
                 messages?: Array<{ role: string; content: string }>;
+                functionCall?: Array<{
+                    name: string;
+                    arguments: string;
+                    callId: string;
+                }>;
+                functionCallOutput?: Array<{
+                    callId: string;
+                    output: string;
+                }>;
             };
 
-            const messages = promptCollection.messages ?? [];
+            //console.log('promptCollection', promptCollection.messages);
+
+            const inputEvents: any[] = [];
+            for (const m of promptCollection.messages ?? []) {
+                inputEvents.push({
+                    type: 'message',
+                    role: m.role,
+                    content: m.content,
+                });
+            }
+            for (const fc of promptCollection.functionCall ?? []) {
+                inputEvents.push({
+                    type: 'function_call',
+                    name: fc.name,
+                    arguments: fc.arguments,
+                    call_id: fc.callId,
+                });
+            }
+            for (const fo of promptCollection.functionCallOutput ?? []) {
+                inputEvents.push({
+                    type: 'function_call_output',
+                    call_id: fo.callId,
+                    output: fo.output,
+                });
+            }
+
+            const chatMessages: any[] = [];
+            for (const m of promptCollection.messages ?? []) {
+                chatMessages.push({
+                    role: m.role,
+                    content: m.content,
+                });
+            }
+            for (const fc of promptCollection.functionCall ?? []) {
+                chatMessages.push({
+                    role: 'assistant',
+                    tool_calls: [
+                        {
+                            id: fc.callId,
+                            type: 'function',
+                            function: {
+                                name: fc.name,
+                                arguments: fc.arguments,
+                            },
+                        },
+                    ]
+                });
+            }
+            for (const fo of promptCollection.functionCallOutput ?? []) {
+                chatMessages.push({
+                    role: 'tool',
+                    tool_call_id: fo.callId,
+                    content: fo.output,
+                });
+            }
 
             const options = this.getNodeParameter('options', i, {}) as {
                 background?: boolean;
@@ -349,29 +458,32 @@ export class Zenlayer implements INodeType {
             if (mode === 'chat') {
                 body = {
                     model,
-                    messages,
+                    messages: chatMessages,
                     max_tokens: options.maxTokens === -1 ? undefined : options.maxTokens,
                     temperature: options.temperature,
                     top_p: options.topP,
                     response_format: options.responseFormat === 'json_object' ? { type: 'json_object' } : undefined,
                     tools: (toolsCollection.tool ?? []).map(t => ({
                         type: t.type ?? 'function',
-                        name: t.name,
-                        description: t.description,
-                        parameters: (() => {
-                            const p = t.parameters;
-                            if (typeof p === 'string') {
-                                try {
-                                    return JSON.parse(p);
-                                } catch (e) {
-                                    throw new NodeOperationError(
-                                        this.getNode(),
-                                        `Invalid JSON in tool parameters: ${p}`
-                                    );
+                        function:
+                        {
+                            name: t.name,
+                            description: t.description,
+                            parameters: (() => {
+                                const p = t.parameters;
+                                if (typeof p === 'string') {
+                                    try {
+                                        return JSON.parse(p);
+                                    } catch (e) {
+                                        throw new NodeOperationError(
+                                            this.getNode(),
+                                            `Invalid JSON in tool parameters: ${p}`
+                                        );
+                                    }
                                 }
-                            }
-                            return p;
-                        })(),
+                                return p;
+                            })(),
+                        },
                         strict: t.strict ?? true,
                     })),
                     tool_choice: toolChoice === 'none' ? 'none' : 'auto',
@@ -379,17 +491,7 @@ export class Zenlayer implements INodeType {
             } else if (mode === 'responses') {
                 body = {
                     model,
-                    input: [
-                        {
-                            role: 'user',
-                            content: [
-                                {
-                                    type: 'input_text',
-                                    text: messages.map(m => m.content).join('\n'),
-                                },
-                            ],
-                        },
-                    ],
+                    input: inputEvents,
                     max_tokens: options.maxTokens === -1 ? undefined : options.maxTokens,
                     temperature: options.temperature,
                     top_p: options.topP,
