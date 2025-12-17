@@ -47,6 +47,29 @@ export class Zenlayer implements INodeType {
 
         properties: [
             {
+                displayName: 'Resource',
+                name: 'resource',
+                type: 'options',
+                default: 'chat',
+                options: [
+                    { name: 'Chat', value: 'chat' },
+                    { name: 'Image', value: 'image' },
+                ],
+                description: 'Choose the resource to use',
+            },
+            {
+                displayName: 'Operation',
+                name: 'imageOperation',
+                type: 'options',
+                default: 'analyze',
+                options: [
+                    { name: 'Analyze Image', value: 'analyze' },
+                ],
+                displayOptions: {
+                    show: { '/resource': ['image'] },
+                },
+            },
+            {
                 displayName: 'Model',
                 name: 'model',
                 type: 'options',
@@ -90,7 +113,7 @@ export class Zenlayer implements INodeType {
                 },
             },
             {
-                displayName: 'Mode',
+                displayName: 'Request Mode',
                 name: 'mode',
                 type: 'options',
                 default: 'chat',
@@ -99,6 +122,11 @@ export class Zenlayer implements INodeType {
                     { name: 'Responses API', value: 'responses' },
                 ],
                 description: 'Choose which Zenlayer endpoint to call',
+                displayOptions: {
+                    show: {
+                        '/resource': ['chat'],
+                    },
+                },
             },
             {
                 displayName: 'Tools',
@@ -138,17 +166,11 @@ export class Zenlayer implements INodeType {
                         ],
                     },
                 ],
-            },
-            {
-                displayName: 'Tool Choice',
-                name: 'toolChoice',
-                type: 'options',
-                default: 'auto',
-                options: [
-                    { name: 'Auto', value: 'auto' },
-                    { name: 'None', value: 'none' },
-                ],
-                description: 'Preference for tool usage during inference',
+                displayOptions: {
+                    show: {
+                        '/resource': ['chat'],
+                    },
+                },
             },
             {
                 displayName: 'Prompt',
@@ -247,6 +269,37 @@ export class Zenlayer implements INodeType {
                         value: '={{ $value.messages }}',
                     },
                 },
+                displayOptions: {
+                    show: {
+                        '/resource': ['chat'],
+                    },
+                },
+            },
+            {
+                displayName: 'Text Input',
+                name: 'imagePrompt',
+                type: 'string',
+                typeOptions: {
+                    rows: 4,
+                },
+                default: "What's in this image?",
+                displayOptions: {
+                    show: {
+                        '/resource': ['image'],
+                    },
+                },
+            },
+            {
+                displayName: 'URL(s)',
+                name: 'imageUrls',
+                type: 'string',
+                default: '',
+                placeholder: 'e.g. https://example.com/image.jpeg',
+                displayOptions: {
+                    show: {
+                        '/resource': ['image'],
+                    },
+                },
             },
             {
                 displayName: 'Options',
@@ -326,6 +379,22 @@ export class Zenlayer implements INodeType {
                         default: 60000,
                     },
                     {
+                        displayName: 'Tool Choice',
+                        name: 'toolChoice',
+                        type: 'options',
+                        default: 'auto',
+                        options: [
+                            { name: 'Auto', value: 'auto' },
+                            { name: 'None', value: 'none' },
+                        ],
+                        description: 'Preference for tool usage during inference',
+                        displayOptions: {
+                            show: {
+                                '/resource': ['chat'],
+                            },
+                        },
+                    },
+                    {
                         displayName: 'Top P',
                         name: 'topP',
                         type: 'number',
@@ -350,88 +419,9 @@ export class Zenlayer implements INodeType {
         }
 
         for (let i = 0; i < items.length; i++) {
-            const mode = this.getNodeParameter('mode', i, 'chat') as string; // ← 新增
+            const requestMode = this.getNodeParameter('mode', i, 'chat') as string;
             const model = this.getNodeParameter('model', i) as string;
-
-            const toolsCollection = this.getNodeParameter('tools', i, {}) as {
-                tool?: Array<{
-                    type?: string;
-                    name?: string;
-                    description?: string;
-                    parameters?: Record<string, any>;
-                    strict?: boolean;
-                }>;
-            };
-            const toolChoice = this.getNodeParameter('toolChoice', i, 'auto') as string;
-
-            const promptCollection = this.getNodeParameter('prompt', i, {}) as {
-                messages?: Array<{ role: string; content: string }>;
-                functionCall?: Array<{
-                    name: string;
-                    arguments: string;
-                    callId: string;
-                }>;
-                functionCallOutput?: Array<{
-                    callId: string;
-                    output: string;
-                }>;
-            };
-
-            //console.log('promptCollection', promptCollection.messages);
-
-            const inputEvents: any[] = [];
-            for (const m of promptCollection.messages ?? []) {
-                inputEvents.push({
-                    type: 'message',
-                    role: m.role,
-                    content: m.content,
-                });
-            }
-            for (const fc of promptCollection.functionCall ?? []) {
-                inputEvents.push({
-                    type: 'function_call',
-                    name: fc.name,
-                    arguments: fc.arguments,
-                    call_id: fc.callId,
-                });
-            }
-            for (const fo of promptCollection.functionCallOutput ?? []) {
-                inputEvents.push({
-                    type: 'function_call_output',
-                    call_id: fo.callId,
-                    output: fo.output,
-                });
-            }
-
-            const chatMessages: any[] = [];
-            for (const m of promptCollection.messages ?? []) {
-                chatMessages.push({
-                    role: m.role,
-                    content: m.content,
-                });
-            }
-            for (const fc of promptCollection.functionCall ?? []) {
-                chatMessages.push({
-                    role: 'assistant',
-                    tool_calls: [
-                        {
-                            id: fc.callId,
-                            type: 'function',
-                            function: {
-                                name: fc.name,
-                                arguments: fc.arguments,
-                            },
-                        },
-                    ]
-                });
-            }
-            for (const fo of promptCollection.functionCallOutput ?? []) {
-                chatMessages.push({
-                    role: 'tool',
-                    tool_call_id: fo.callId,
-                    content: fo.output,
-                });
-            }
+            const resource = this.getNodeParameter('resource', i) as string;
 
             const options = this.getNodeParameter('options', i, {}) as {
                 background?: boolean;
@@ -443,6 +433,7 @@ export class Zenlayer implements INodeType {
                 topP?: number;
                 parallelToolCalls?: boolean;
                 store?: boolean;
+                toolChoice?: string;
             };
 
             const maxRetries = options.maxRetries ?? 2;
@@ -451,79 +442,17 @@ export class Zenlayer implements INodeType {
             let attempt = 0;
             let responseData;
 
-            // 根据 mode 拼接 API 路径与 body
-            const endpoint = mode === 'responses' ? '/responses' : '/chat/completions';
+            let endpoint;
 
             let body: any;
-            if (mode === 'chat') {
-                body = {
-                    model,
-                    messages: chatMessages,
-                    max_tokens: options.maxTokens === -1 ? undefined : options.maxTokens,
-                    temperature: options.temperature,
-                    top_p: options.topP,
-                    response_format: options.responseFormat === 'json_object' ? { type: 'json_object' } : undefined,
-                    tools: (toolsCollection.tool ?? []).map(t => ({
-                        type: t.type ?? 'function',
-                        function:
-                        {
-                            name: t.name,
-                            description: t.description,
-                            parameters: (() => {
-                                const p = t.parameters;
-                                if (typeof p === 'string') {
-                                    try {
-                                        return JSON.parse(p);
-                                    } catch (e) {
-                                        throw new NodeOperationError(
-                                            this.getNode(),
-                                            `Invalid JSON in tool parameters: ${p}`
-                                        );
-                                    }
-                                }
-                                return p;
-                            })(),
-                        },
-                        strict: t.strict ?? true,
-                    })),
-                    tool_choice: toolChoice === 'none' ? 'none' : 'auto',
-                };
-            } else if (mode === 'responses') {
-                body = {
-                    model,
-                    input: inputEvents,
-                    max_tokens: options.maxTokens === -1 ? undefined : options.maxTokens,
-                    temperature: options.temperature,
-                    top_p: options.topP,
-                    response_format: options.responseFormat === 'json_object' ? { type: 'json_object' } : undefined,
-                    parallel_tool_calls: options.parallelToolCalls ?? true,
-                    store: options.store ?? true,
-                    background: options.background ?? false,
-                    tools: (toolsCollection.tool ?? []).map(t => ({
-                        type: t.type ?? 'function',
-                        name: t.name,
-                        description: t.description,
-                        parameters: (() => {
-                            const p = t.parameters;
-                            if (typeof p === 'string') {
-                                try {
-                                    return JSON.parse(p);
-                                } catch (e) {
-                                    throw new NodeOperationError(
-                                        this.getNode(),
-                                        `Invalid JSON in tool parameters: ${p}`
-                                    );
-                                }
-                            }
-                            return p;
-                        })(),
-                        strict: t.strict ?? true,
-                    })),
-                    tool_choice: toolChoice === 'none' ? 'none' : 'auto',
-                };
-            }
 
-            // =====================================================//
+            if (resource === 'image') {
+                endpoint = '/responses';
+                body = await handleImageResource(this, i, model);
+            } else {
+                endpoint = requestMode === 'responses' ? '/responses' : '/chat/completions';
+                body = await handleChatResource(this, i, model, requestMode, options);
+            }
 
             while (attempt <= maxRetries) {
                 try {
@@ -555,6 +484,200 @@ export class Zenlayer implements INodeType {
 
         return this.prepareOutputData(returnData);
     }
-
-
 }
+
+async function handleImageResource(
+    context: IExecuteFunctions,
+    i: number,
+    model: string,
+): Promise<any> {
+    const imageOperation = context.getNodeParameter('imageOperation', i, 'analyze') as string;
+    if (imageOperation === 'analyze') {
+        const imagePrompt = context.getNodeParameter('imagePrompt', i) as string;
+        const imageUrl = context.getNodeParameter('imageUrls', i) as string;
+
+        const input: any[] = [
+            {
+                role: 'user',
+                content: [{ type: 'input_text', text: imagePrompt }],
+            },
+        ];
+
+        const urls = imageUrl
+            .split(',')
+            .map((u) => u.trim())
+            .filter(Boolean);
+        for (const url of urls) {
+            input[0].content.push({
+                type: 'input_image',
+                image_url: url,
+            });
+        }
+
+        return {
+            model,
+            input,
+        };
+    }
+    throw new NodeOperationError(context.getNode(), 'Unsupported image operation.');
+}
+
+async function handleChatResource(
+    context: IExecuteFunctions,
+    i: number,
+    model: string,
+    mode: string,
+    options: any,
+): Promise<any> {
+    const toolsCollection = context.getNodeParameter('tools', i, {}) as {
+        tool?: Array<{
+            type?: string;
+            name?: string;
+            description?: string;
+            parameters?: Record<string, any>;
+            strict?: boolean;
+        }>;
+    };
+
+    const promptCollection = context.getNodeParameter('prompt', i, {}) as {
+        messages?: Array<{ role: string; content: string }>;
+        functionCall?: Array<{
+            name: string;
+            arguments: string;
+            callId: string;
+        }>;
+        functionCallOutput?: Array<{
+            callId: string;
+            output: string;
+        }>;
+    };
+
+    const inputEvents: any[] = [];
+    for (const m of promptCollection.messages ?? []) {
+        inputEvents.push({
+            type: 'message',
+            role: m.role,
+            content: m.content,
+        });
+    }
+    for (const fc of promptCollection.functionCall ?? []) {
+        inputEvents.push({
+            type: 'function_call',
+            name: fc.name,
+            arguments: fc.arguments,
+            call_id: fc.callId,
+        });
+    }
+    for (const fo of promptCollection.functionCallOutput ?? []) {
+        inputEvents.push({
+            type: 'function_call_output',
+            call_id: fo.callId,
+            output: fo.output,
+        });
+    }
+
+    const chatMessages: any[] = [];
+    for (const m of promptCollection.messages ?? []) {
+        chatMessages.push({
+            role: m.role,
+            content: m.content,
+        });
+    }
+    for (const fc of promptCollection.functionCall ?? []) {
+        chatMessages.push({
+            role: 'assistant',
+            tool_calls: [
+                {
+                    id: fc.callId,
+                    type: 'function',
+                    function: {
+                        name: fc.name,
+                        arguments: fc.arguments,
+                    },
+                },
+            ],
+        });
+    }
+    for (const fo of promptCollection.functionCallOutput ?? []) {
+        chatMessages.push({
+            role: 'tool',
+            tool_call_id: fo.callId,
+            content: fo.output,
+        });
+    }
+
+    if (mode === 'chat') {
+        return {
+            model,
+            messages: chatMessages,
+            max_tokens: options.maxTokens === -1 ? undefined : options.maxTokens,
+            temperature: options.temperature,
+            top_p: options.topP,
+            response_format:
+                options.responseFormat === 'json_object'
+                    ? { type: 'json_object' }
+                    : undefined,
+            tools: (toolsCollection.tool ?? []).map((t) => ({
+                type: t.type ?? 'function',
+                function: {
+                    name: t.name,
+                    description: t.description,
+                    parameters: (() => {
+                        const p = t.parameters;
+                        if (typeof p === 'string') {
+                            try {
+                                return JSON.parse(p);
+                            } catch (e) {
+                                throw new NodeOperationError(
+                                    context.getNode(),
+                                    `Invalid JSON in tool parameters: ${p}`,
+                                );
+                            }
+                        }
+                        return p;
+                    })(),
+                },
+                strict: t.strict ?? true,
+            })),
+            tool_choice: options.toolChoice ?? 'auto',
+        };
+    } else if (mode === 'responses') {
+        return {
+            model,
+            input: inputEvents,
+            max_tokens: options.maxTokens === -1 ? undefined : options.maxTokens,
+            temperature: options.temperature,
+            top_p: options.topP,
+            response_format:
+                options.responseFormat === 'json_object'
+                    ? { type: 'json_object' }
+                    : undefined,
+            parallel_tool_calls: options.parallelToolCalls ?? true,
+            store: options.store ?? true,
+            background: options.background ?? false,
+            tools: (toolsCollection.tool ?? []).map((t) => ({
+                type: t.type ?? 'function',
+                name: t.name,
+                description: t.description,
+                parameters: (() => {
+                    const p = t.parameters;
+                    if (typeof p === 'string') {
+                        try {
+                            return JSON.parse(p);
+                        } catch (e) {
+                            throw new NodeOperationError(
+                                context.getNode(),
+                                `Invalid JSON in tool parameters: ${p}`,
+                            );
+                        }
+                    }
+                    return p;
+                })(),
+                strict: t.strict ?? true,
+            })),
+            tool_choice: options.toolChoice ?? 'auto',
+        };
+    }
+    throw new NodeOperationError(context.getNode(), 'Unsupported chat operation.');
+}
+
