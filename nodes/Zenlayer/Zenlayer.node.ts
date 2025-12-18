@@ -50,9 +50,10 @@ export class Zenlayer implements INodeType {
                 displayName: 'Resource',
                 name: 'resource',
                 type: 'options',
-                default: 'chat',
+                default: 'text',
+                noDataExpression: true,
                 options: [
-                    { name: 'Chat', value: 'chat' },
+                    { name: 'Text', value: 'text' },
                     { name: 'Image', value: 'image' },
                 ],
                 description: 'Choose the resource to use',
@@ -111,6 +112,27 @@ export class Zenlayer implements INodeType {
                         },
                     },
                 },
+                displayOptions: {
+                    hide: {
+                        '/descriptionType': ['auto', 'manual'],
+                    },
+                },
+            },
+            {
+                displayName: 'Model',
+                name: 'model',
+                type: 'options',
+                default: 'gpt-5',
+                options: [
+                    { name: 'gpt-5', value: 'gpt-5' },
+                    { name: 'gpt-4o', value: 'gpt-4o' },
+                ],
+                description: 'Select a model provided by your Zenlayer AI Gateway',
+                displayOptions: {
+                    show: {
+                        '/descriptionType': ['auto', 'manual'],
+                    },
+                },
             },
             {
                 displayName: 'Request Mode',
@@ -124,7 +146,7 @@ export class Zenlayer implements INodeType {
                 description: 'Choose which Zenlayer endpoint to call',
                 displayOptions: {
                     show: {
-                        '/resource': ['chat'],
+                        '/resource': ['text'],
                     },
                 },
             },
@@ -167,8 +189,9 @@ export class Zenlayer implements INodeType {
                     },
                 ],
                 displayOptions: {
-                    show: {
-                        '/resource': ['chat'],
+                    hide: {
+                        '/resource': ['image'],
+                        '/descriptionType': ['auto', 'manual'],
                     },
                 },
             },
@@ -271,7 +294,7 @@ export class Zenlayer implements INodeType {
                 },
                 displayOptions: {
                     show: {
-                        '/resource': ['chat'],
+                        '/resource': ['text'],
                     },
                 },
             },
@@ -390,7 +413,7 @@ export class Zenlayer implements INodeType {
                         description: 'Preference for tool usage during inference',
                         displayOptions: {
                             show: {
-                                '/resource': ['chat'],
+                                '/resource': ['text'],
                             },
                         },
                     },
