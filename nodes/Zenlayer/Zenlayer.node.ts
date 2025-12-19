@@ -31,7 +31,8 @@ export class Zenlayer implements INodeType {
             },
         },
 
-        inputs: ['main'],
+        inputs: ['main', 'ai_tool'],
+        inputNames: ['', 'Tools'],
         outputs: ['main'],
 
         credentials: [
@@ -136,7 +137,7 @@ export class Zenlayer implements INodeType {
             },
             {
                 displayName: 'Request Mode',
-                name: 'mode',
+                name: 'requestMode',
                 type: 'options',
                 default: 'chat',
                 options: [
@@ -151,51 +152,6 @@ export class Zenlayer implements INodeType {
                 },
             },
             {
-                displayName: 'Tools',
-                name: 'tools',
-                type: 'fixedCollection',
-                typeOptions: {
-                    sortable: true,
-                    multipleValues: true,
-                },
-                placeholder: 'Add Tool',
-                default: {},
-                description: 'Define function tools for the model to call',
-                options: [
-                    {
-                        displayName: 'Tool',
-                        name: 'tool',
-                        values: [
-                            {
-                                displayName: 'Name',
-                                name: 'name',
-                                type: 'string',
-                                default: '',
-                            },
-                            {
-                                displayName: 'Description',
-                                name: 'description',
-                                type: 'string',
-                                default: '',
-                            },
-                            {
-                                displayName: 'Parameters (JSON Schema)',
-                                name: 'parameters',
-                                type: 'json',
-                                default: {},
-                                description: 'JSON Schema describing the function parameters',
-                            },
-                        ],
-                    },
-                ],
-                displayOptions: {
-                    hide: {
-                        '/resource': ['image'],
-                        '/descriptionType': ['auto', 'manual'],
-                    },
-                },
-            },
-            {
                 displayName: 'Prompt',
                 name: 'prompt',
                 type: 'fixedCollection',
@@ -203,7 +159,7 @@ export class Zenlayer implements INodeType {
                     sortable: true,
                     multipleValues: true,
                 },
-                placeholder: 'Add Input',
+                placeholder: 'Add Messages',
                 default: {},
                 options: [
                     {
@@ -236,52 +192,6 @@ export class Zenlayer implements INodeType {
                                 type: 'string',
                                 default: '',
                             },
-                        ],
-                    },
-                    {
-                        displayName: 'Function Call',
-                        name: 'functionCall',
-                        values: [
-                            {
-                                displayName: 'Name',
-                                name: 'name',
-                                type: 'string',
-                                default: '',
-                            },
-                            {
-                                displayName: 'Arguments',
-                                name: 'arguments',
-                                type: 'string',
-                                default: '',
-                                description: 'JSON arguments for the function call',
-                            },
-                            {
-                                displayName: 'Call ID',
-                                name: 'callId',
-                                type: 'string',
-                                default: '',
-                                description: 'Unique identifier for the function call',
-                            },
-                        ],
-                    },
-                    {
-                        displayName: 'Function Call Output',
-                        name: 'functionCallOutput',
-                        values: [
-                            {
-                                displayName: 'Call ID',
-                                name: 'callId',
-                                type: 'string',
-                                default: '',
-                                description: 'Unique identifier for the function call output',
-                            },
-                            {
-                                displayName: 'Output',
-                                name: 'output',
-                                type: 'string',
-                                default: '',
-                                description: 'Output content from the function call',
-                            }
                         ],
                     },
                 ],
@@ -402,22 +312,6 @@ export class Zenlayer implements INodeType {
                         default: 60000,
                     },
                     {
-                        displayName: 'Tool Choice',
-                        name: 'toolChoice',
-                        type: 'options',
-                        default: 'auto',
-                        options: [
-                            { name: 'Auto', value: 'auto' },
-                            { name: 'None', value: 'none' },
-                        ],
-                        description: 'Preference for tool usage during inference',
-                        displayOptions: {
-                            show: {
-                                '/resource': ['text'],
-                            },
-                        },
-                    },
-                    {
                         displayName: 'Top P',
                         name: 'topP',
                         type: 'number',
@@ -442,7 +336,7 @@ export class Zenlayer implements INodeType {
         }
 
         for (let i = 0; i < items.length; i++) {
-            const requestMode = this.getNodeParameter('mode', i, 'chat') as string;
+            const requestMode = this.getNodeParameter('requestMode', i, 'chat') as string;
             const model = this.getNodeParameter('model', i) as string;
             const resource = this.getNodeParameter('resource', i) as string;
 
