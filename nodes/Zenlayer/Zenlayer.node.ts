@@ -312,6 +312,22 @@ export class Zenlayer implements INodeType {
                         default: 60000,
                     },
                     {
+                        displayName: 'Tool Choice',
+                        name: 'toolChoice',
+                        type: 'options',
+                        default: 'auto',
+                        options: [
+                            { name: 'Auto', value: 'auto' },
+                            { name: 'None', value: 'none' },
+                        ],
+                        description: 'Preference for tool usage during inference',
+                        displayOptions: {
+                            show: {
+                                '/resource': ['text'],
+                            },
+                        },
+                    },
+                    {
                         displayName: 'Top P',
                         name: 'topP',
                         type: 'number',
@@ -446,7 +462,7 @@ async function handleChatResource(
     mode: string,
     options: any,
 ): Promise<any> {
-    const toolsCollection = context.getNodeParameter('tools', i, {}) as {
+    const toolsCollection = await context.getInputConnectionData('ai_tool', 0) as {
         tool?: Array<{
             type?: string;
             name?: string;
