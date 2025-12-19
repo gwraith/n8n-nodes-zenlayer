@@ -245,10 +245,10 @@ export class Zenlayer implements INodeType {
                         name: 'background',
                         type: 'boolean',
                         default: false,
-                        description: 'Run request in background (Responses API only)',
+                        description: 'Whether Run request in background (Responses API only)',
                         displayOptions: {
                             show: {
-                                '/mode': ['responses'],
+                                '/requestMode': ['responses'],
                             },
                         },
                     },
@@ -269,10 +269,10 @@ export class Zenlayer implements INodeType {
                         name: 'parallelToolCalls',
                         type: 'boolean',
                         default: true,
-                        description: 'Enable parallel tool calls (only for Responses API)',
+                        description: 'Whether Enable parallel tool calls (only for Responses API)',
                         displayOptions: {
                             show: {
-                                '/mode': ['responses'],
+                                '/requestMode': ['responses'],
                             },
                         },
                     },
@@ -294,7 +294,7 @@ export class Zenlayer implements INodeType {
                         description: 'Whether to store the response in the server (only for Responses API)',
                         displayOptions: {
                             show: {
-                                '/mode': ['responses'],
+                                '/requestMode': ['responses'],
                             },
                         },
                     },
