@@ -415,6 +415,8 @@ export class Zenlayer implements INodeType {
                 }
             }
 
+            if (responseData)
+
             returnData.push({ json: responseData });
         }
 
@@ -571,11 +573,11 @@ async function handleChatResource(
                     : undefined,
             tools: (inputTools ?? []).map((t) => ({
 				type: t.type ?? 'function',
-				name: t.name,
-				description: t.description,
-				parameters: (() => {
-					return t.parameters;
-				})(),
+                function: {
+                    name: t.name,
+                    description: t.description,
+                    parameters: t.parameters,
+                },
 				strict: t.strict ?? true,
 			})),
             tool_choice: options.toolChoice ?? 'auto',
@@ -598,9 +600,7 @@ async function handleChatResource(
 				type: t.type ?? 'function',
 				name: t.name,
 				description: t.description,
-				parameters: (() => {
-					return t.parameters;
-				})(),
+				parameters: t.parameters,
 				strict: t.strict ?? true,
 			})),
             tool_choice: options.toolChoice ?? 'auto',
