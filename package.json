@@ -46,5 +46,8 @@
     },
     "peerDependencies": {
         "n8n-workflow": "*"
-    }
+    },
+	"dependencies": {
+      "zod-to-json-schema": "3.23.3"
+	}
 }

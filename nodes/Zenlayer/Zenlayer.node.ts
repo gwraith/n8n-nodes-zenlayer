@@ -1,11 +1,14 @@
 import {
-    IExecuteFunctions,
-    INodeExecutionData,
-    INodeType,
-    INodeTypeDescription,
-    NodeApiError,
-    NodeOperationError,
+	IExecuteFunctions,
+	INodeExecutionData,
+	INodeType,
+	INodeTypeDescription,
+	NodeApiError,
+	NodeConnectionTypes,
+	NodeOperationError,
 } from 'n8n-workflow';
+
+import { zodToJsonSchema } from 'zod-to-json-schema';
 
 
 export class Zenlayer implements INodeType {
@@ -462,15 +465,32 @@ async function handleChatResource(
     mode: string,
     options: any,
 ): Promise<any> {
-    const toolsCollection = await context.getInputConnectionData('ai_tool', 0) as {
-        tool?: Array<{
-            type?: string;
-            name?: string;
-            description?: string;
-            parameters?: Record<string, any>;
-            strict?: boolean;
-        }>;
-    };
+    const toolsCollection = await context.getInputConnectionData(NodeConnectionTypes.AiTool, 0) ?? [];
+
+	const inputTools: Array<{
+		type?: string;
+		name?: string;
+		description?: string;
+		parameters?: Record<string, any>;
+		strict?: boolean;
+	}> = [];
+
+    for (const tool of toolsCollection) {
+        context.logger.info(`Processing tool: ${tool?.name || 'Unnamed Tool'} typeof ${typeof tool}`);
+
+		for (const key of Object.keys(tool)) {
+			context.logger.info(`Tool property - ${key}: ${JSON.stringify((tool as any)[key])}`);
+		}
+
+		inputTools.push({
+			type: tool.type,
+			name: tool.name,
+			description: tool.description,
+			parameters: zodToJsonSchema(tool.schema)|| {},
+			strict: tool.strict ?? true,
+		});
+		context.logger.info(`Added tool from toolkit: ${tool.name}`);
+    }
 
     const promptCollection = context.getNodeParameter('prompt', i, {}) as {
         messages?: Array<{ role: string; content: string }>;
@@ -519,7 +539,7 @@ async function handleChatResource(
     for (const fc of promptCollection.functionCall ?? []) {
         chatMessages.push({
             role: 'assistant',
-            tool_calls: [
+            tool_calls:
                 {
                     id: fc.callId,
                     type: 'function',
@@ -528,7 +548,6 @@ async function handleChatResource(
                         arguments: fc.arguments,
                     },
                 },
-            ],
         });
     }
     for (const fo of promptCollection.functionCallOutput ?? []) {
@@ -550,28 +569,15 @@ async function handleChatResource(
                 options.responseFormat === 'json_object'
                     ? { type: 'json_object' }
                     : undefined,
-            tools: (toolsCollection.tool ?? []).map((t) => ({
-                type: t.type ?? 'function',
-                function: {
-                    name: t.name,
-                    description: t.description,
-                    parameters: (() => {
-                        const p = t.parameters;
-                        if (typeof p === 'string') {
-                            try {
-                                return JSON.parse(p);
-                            } catch (e) {
-                                throw new NodeOperationError(
-                                    context.getNode(),
-                                    `Invalid JSON in tool parameters: ${p}`,
-                                );
-                            }
-                        }
-                        return p;
-                    })(),
-                },
-                strict: t.strict ?? true,
-            })),
+            tools: (inputTools ?? []).map((t) => ({
+				type: t.type ?? 'function',
+				name: t.name,
+				description: t.description,
+				parameters: (() => {
+					return t.parameters;
+				})(),
+				strict: t.strict ?? true,
+			})),
             tool_choice: options.toolChoice ?? 'auto',
         };
     } else if (mode === 'responses') {
@@ -588,26 +594,15 @@ async function handleChatResource(
             parallel_tool_calls: options.parallelToolCalls ?? true,
             store: options.store ?? true,
             background: options.background ?? false,
-            tools: (toolsCollection.tool ?? []).map((t) => ({
-                type: t.type ?? 'function',
-                name: t.name,
-                description: t.description,
-                parameters: (() => {
-                    const p = t.parameters;
-                    if (typeof p === 'string') {
-                        try {
-                            return JSON.parse(p);
-                        } catch (e) {
-                            throw new NodeOperationError(
-                                context.getNode(),
-                                `Invalid JSON in tool parameters: ${p}`,
-                            );
-                        }
-                    }
-                    return p;
-                })(),
-                strict: t.strict ?? true,
-            })),
+            tools: (inputTools ?? []).map((t) => ({
+				type: t.type ?? 'function',
+				name: t.name,
+				description: t.description,
+				parameters: (() => {
+					return t.parameters;
+				})(),
+				strict: t.strict ?? true,
+			})),
             tool_choice: options.toolChoice ?? 'auto',
         };
     }
