@@ -293,7 +293,7 @@ export class Zenlayer implements INodeType {
                         displayName: 'Store',
                         name: 'store',
                         type: 'boolean',
-                        default: true,
+                        default: false,
                         description: 'Whether to store the response in the server (only for Responses API)',
                         displayOptions: {
                             show: {
@@ -416,19 +416,105 @@ export class Zenlayer implements INodeType {
             }
 
             if (requestMode == 'chat' && resource === 'text') {
-                if (responseData.choices && responseData.choices.length > 0) {
-                    const message = responseData.choices[0].message;
-                    if (message.tool_calls) {
-                        for (const toolCall of message.tool_calls) {
-                            const toolName = toolCall.function.name;
-                            const args = JSON.parse(toolCall.function.arguments || '{}');
+				let messages = body.messages;
 
-                        }
-                    }
-                }
+				while (true) {
+					const message = responseData.choices?.[0]?.message;
+
+					if (!message?.tool_calls || message.tool_calls.length === 0) {
+						break;
+					}
+
+					// 把 assistant 的 tool_calls 回写
+					messages.push({
+						role: 'assistant',
+						tool_calls: message.tool_calls,
+					});
+
+					// 执行每一个 tool
+					for (const toolCall of message.tool_calls) {
+						const result = await executeTool(this, toolCall);
+
+						messages.push({
+							role: 'tool',
+							tool_call_id: result.callId,
+							content: result.output,
+						});
+					}
+
+					// 再次请求模型
+					responseData = await this.helpers.httpRequest({
+						method: 'POST',
+						url: `${baseURL}/chat/completions`,
+						headers: {
+							Authorization: `Bearer ${apiKey}`,
+							'Content-Type': 'application/json',
+						},
+						body: {
+							...body,
+							messages,
+						},
+						timeout,
+						json: true,
+					});
+				}
 
             } else  if (requestMode == 'responses' && resource === 'text') {
+				let input = body.input;
 
+				while (true) {
+					const funcCalls = (responseData.output ?? []).filter(
+						(o: any) => o.type === 'function_call',
+					);
+
+					if (funcCalls.length === 0) {
+						break;
+					}
+
+					const toolOutputs = [];
+
+
+					for (const funcCall of funcCalls) {
+						const result = await executeTool(this, {
+							id: funcCall.id,
+							function: {
+								name: funcCall.name,
+								arguments: funcCall.arguments,
+							},
+						});
+
+						toolOutputs.push(
+							{
+								type: 'function_call',
+								name: funcCall.name,
+								arguments: funcCall.arguments,
+								call_id: funcCall.id,
+							},
+							{
+								type: 'function_call_output',
+								call_id: result.callId,
+								output: result.output,
+							}
+						);
+					}
+
+					input = input.concat(toolOutputs);
+
+					responseData = await this.helpers.httpRequest({
+						method: 'POST',
+						url: `${baseURL}/responses`,
+						headers: {
+							Authorization: `Bearer ${apiKey}`,
+							'Content-Type': 'application/json',
+						},
+						body: {
+							...body,
+							input,
+						},
+						timeout,
+						json: true,
+					});
+				}
             }
 
             returnData.push({ json: responseData });
@@ -487,7 +573,6 @@ async function handleChatResource(
 		name?: string;
 		description?: string;
 		parameters?: Record<string, any>;
-		strict?: boolean;
 	}> = [];
 
     for (const tool of toolsCollection) {
@@ -502,22 +587,12 @@ async function handleChatResource(
 			name: tool.name,
 			description: tool.description,
 			parameters: zodToJsonSchema(tool.schema)|| {},
-			strict: tool.strict ?? true,
 		});
 		context.logger.info(`Added tool from toolkit: ${tool.name}`);
     }
 
     const promptCollection = context.getNodeParameter('prompt', i, {}) as {
         messages?: Array<{ role: string; content: string }>;
-        functionCall?: Array<{
-            name: string;
-            arguments: string;
-            callId: string;
-        }>;
-        functionCallOutput?: Array<{
-            callId: string;
-            output: string;
-        }>;
     };
 
     const inputEvents: any[] = [];
@@ -528,48 +603,12 @@ async function handleChatResource(
             content: m.content,
         });
     }
-    for (const fc of promptCollection.functionCall ?? []) {
-        inputEvents.push({
-            type: 'function_call',
-            name: fc.name,
-            arguments: fc.arguments,
-            call_id: fc.callId,
-        });
-    }
-    for (const fo of promptCollection.functionCallOutput ?? []) {
-        inputEvents.push({
-            type: 'function_call_output',
-            call_id: fo.callId,
-            output: fo.output,
-        });
-    }
 
     const chatMessages: any[] = [];
     for (const m of promptCollection.messages ?? []) {
         chatMessages.push({
             role: m.role,
             content: m.content,
-        });
-    }
-    for (const fc of promptCollection.functionCall ?? []) {
-        chatMessages.push({
-            role: 'assistant',
-            tool_calls:
-                {
-                    id: fc.callId,
-                    type: 'function',
-                    function: {
-                        name: fc.name,
-                        arguments: fc.arguments,
-                    },
-                },
-        });
-    }
-    for (const fo of promptCollection.functionCallOutput ?? []) {
-        chatMessages.push({
-            role: 'tool',
-            tool_call_id: fo.callId,
-            content: fo.output,
         });
     }
 
@@ -591,7 +630,6 @@ async function handleChatResource(
                     description: t.description,
                     parameters: t.parameters,
                 },
-				strict: t.strict ?? true,
 			})),
             tool_choice: options.toolChoice ?? 'auto',
         };
@@ -607,14 +645,13 @@ async function handleChatResource(
                     ? { type: 'json_object' }
                     : undefined,
             parallel_tool_calls: options.parallelToolCalls ?? true,
-            store: options.store ?? true,
+            store: options.store ?? false,
             background: options.background ?? false,
             tools: (inputTools ?? []).map((t) => ({
 				type: t.type ?? 'function',
 				name: t.name,
 				description: t.description,
 				parameters: t.parameters,
-				strict: t.strict ?? true,
 			})),
             tool_choice: options.toolChoice ?? 'auto',
         };
@@ -622,3 +659,34 @@ async function handleChatResource(
     throw new NodeOperationError(context.getNode(), 'Unsupported chat operation.');
 }
 
+async function executeTool(
+	context: IExecuteFunctions,
+	toolCall: any,
+): Promise<{ callId: string; output: string }> {
+	const toolName = toolCall.function.name;
+	const args = JSON.parse(toolCall.function.arguments || '{}');
+
+	// 通过 AiTool 连接获取所有 tool
+	const tools = await context.getInputConnectionData(
+		NodeConnectionTypes.AiTool,
+		0,
+	) as any[];
+
+	const tool = tools.find((t) => t.name === toolName);
+
+	if (!tool) {
+		throw new NodeOperationError(
+			context.getNode(),
+			`Tool "${toolName}" not found`,
+		);
+	}
+
+	context.logger.info(`Executing tool: ${toolName}`);
+
+	const result = await tool.invoke(args);
+
+	return {
+		callId: toolCall.id,
+		output: typeof result === 'string' ? result : JSON.stringify(result),
+	};
+}
