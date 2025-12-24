@@ -415,7 +415,21 @@ export class Zenlayer implements INodeType {
                 }
             }
 
-            if (responseData)
+            if (requestMode == 'chat' && resource === 'text') {
+                if (responseData.choices && responseData.choices.length > 0) {
+                    const message = responseData.choices[0].message;
+                    if (message.tool_calls) {
+                        for (const toolCall of message.tool_calls) {
+                            const toolName = toolCall.function.name;
+                            const args = JSON.parse(toolCall.function.arguments || '{}');
+
+                        }
+                    }
+                }
+
+            } else  if (requestMode == 'responses' && resource === 'text') {
+
+            }
 
             returnData.push({ json: responseData });
         }
@@ -467,8 +481,7 @@ async function handleChatResource(
     mode: string,
     options: any,
 ): Promise<any> {
-    const toolsCollection = await context.getInputConnectionData(NodeConnectionTypes.AiTool, 0) ?? [];
-
+    const toolsCollection = await context.getInputConnectionData(NodeConnectionTypes.AiTool, 0) as any;
 	const inputTools: Array<{
 		type?: string;
 		name?: string;
