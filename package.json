@@ -48,6 +48,6 @@
         "n8n-workflow": "*"
     },
 	"dependencies": {
-      "zod-to-json-schema": "3.23.3"
+      "zod-to-json-schema": "3.25.0"
 	}
 }

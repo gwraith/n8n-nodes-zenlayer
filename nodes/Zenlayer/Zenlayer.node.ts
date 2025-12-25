@@ -10,7 +10,6 @@ import {
 
 import { zodToJsonSchema } from 'zod-to-json-schema';
 
-
 export class Zenlayer implements INodeType {
     description: INodeTypeDescription = {
         displayName: 'Zenlayer',
@@ -114,23 +113,16 @@ export class Zenlayer implements INodeType {
                             },
                             output: {
                                 postReceive: [
-                                    { type: 'rootProperty', properties: { property: 'data' } },
                                     {
-                                        type: 'filter',
+                                        type: 'rootProperty',
                                         properties: {
-                                            pass: `={{
-												($parameter.options?.baseURL && !$parameter.options?.baseURL?.startsWith('https://api.openai.com/')) ||
-												($credentials?.url && !$credentials.url.startsWith('https://api.openai.com/')) ||
-												$responseItem.id.startsWith('ft:') ||
-												$responseItem.id.startsWith('o1') ||
-												$responseItem.id.startsWith('o3') ||
-												($responseItem.id.startsWith('gpt-') && !$responseItem.id.includes('instruct'))
-											}}`,
+                                            property: 'data',
                                         },
                                     },
                                     {
                                         type: 'setKeyValue',
                                         properties: {
+                                            //name: '={{$responseItem.owned_by + "/" + $responseItem.id}}',
                                             name: '={{$responseItem.id}}',
                                             value: '={{$responseItem.id}}',
                                         },
