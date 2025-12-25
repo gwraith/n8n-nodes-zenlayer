@@ -19,6 +19,7 @@ export class Zenlayer implements INodeType {
         group: ['transform'],
         version: [1],
         description: 'Consume Zenlayer AI Gateway APIs',
+        subtitle: '={{$parameter["resource"] === "text" ? "Message a Model" : "Analyze Image"}}',
         defaults: {
             name: 'Zenlayer',
         },
@@ -64,11 +65,35 @@ export class Zenlayer implements INodeType {
             },
             {
                 displayName: 'Operation',
-                name: 'imageOperation',
+                name: 'operation',
+                type: 'options',
+                default: 'messageModel',
+                noDataExpression: true,
+                options: [
+                    {
+                        name: 'Message a Model',
+                        value: 'messageModel',
+                        action: 'Message a model',
+                        description: 'Send messages to a language model and receive responses',
+                    },
+                ],
+                displayOptions: {
+                    show: { '/resource': ['text'] },
+                },
+            },
+            {
+                displayName: 'Operation',
+                name: 'operation',
                 type: 'options',
                 default: 'analyze',
+                noDataExpression: true,
                 options: [
-                    { name: 'Analyze Image', value: 'analyze' },
+                    {
+                        name: 'Analyze Image',
+                        value: 'analyze',
+                        action: 'Analyze image',
+                        description: 'Analyze images and get descriptions or insights'
+                    },
                 ],
                 displayOptions: {
                     show: { '/resource': ['image'] },
@@ -416,7 +441,7 @@ export class Zenlayer implements INodeType {
             }
 
             if (requestMode == 'chat' && resource === 'text') {
-				let messages = body.messages;
+				const messages = body.messages;
 
 				while (true) {
 					const message = responseData.choices?.[0]?.message;
@@ -529,8 +554,8 @@ async function handleImageResource(
     i: number,
     model: string,
 ): Promise<any> {
-    const imageOperation = context.getNodeParameter('imageOperation', i, 'analyze') as string;
-    if (imageOperation === 'analyze') {
+    const operation = context.getNodeParameter('operation', i, 'analyze') as string;
+    if (operation === 'analyze') {
         const imagePrompt = context.getNodeParameter('imagePrompt', i) as string;
         const imageUrl = context.getNodeParameter('imageUrls', i) as string;
 
