@@ -65,7 +65,7 @@ export class Zenlayer implements INodeType {
             },
             {
                 displayName: 'Operation',
-                name: 'operation',
+                name: 'zenOperation',
                 type: 'options',
                 default: 'messageModel',
                 noDataExpression: true,
@@ -83,7 +83,7 @@ export class Zenlayer implements INodeType {
             },
             {
                 displayName: 'Operation',
-                name: 'operation',
+                name: 'zenOperation',
                 type: 'options',
                 default: 'analyze',
                 noDataExpression: true,
@@ -554,7 +554,7 @@ async function handleImageResource(
     i: number,
     model: string,
 ): Promise<any> {
-    const operation = context.getNodeParameter('operation', i, 'analyze') as string;
+    const operation = context.getNodeParameter('zenOperation', i, 'analyze') as string;
     if (operation === 'analyze') {
         const imagePrompt = context.getNodeParameter('imagePrompt', i) as string;
         const imageUrl = context.getNodeParameter('imageUrls', i) as string;
