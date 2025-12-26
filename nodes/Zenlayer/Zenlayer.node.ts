@@ -8,7 +8,8 @@ import {
 	NodeOperationError,
 } from 'n8n-workflow';
 
-import { zodToJsonSchema } from 'zod-to-json-schema';
+import {handleImageResource} from "./Zenlayer.image";
+import {handleChatResource} from "./Zenlayer.text";
 
 export class Zenlayer implements INodeType {
     description: INodeTypeDescription = {
@@ -363,19 +364,10 @@ export class Zenlayer implements INodeType {
         const items = this.getInputData();
         const returnData: INodeExecutionData[] = [];
 
-        const credentials = await this.getCredentials('zenlayerApi');
-        const baseURL = credentials.url;
-        const apiKey = credentials.apiKey;
-
-        if (!baseURL || !apiKey) {
-            throw new NodeOperationError(this.getNode(), 'Zenlayer API credentials not configured properly.');
-        }
-
         for (let i = 0; i < items.length; i++) {
             const requestMode = this.getNodeParameter('requestMode', i, 'chat') as string;
             const model = this.getNodeParameter('model', i) as string;
             const resource = this.getNodeParameter('resource', i) as string;
-
             const options = this.getNodeParameter('options', i, {}) as {
                 background?: boolean;
                 maxRetries?: number;
@@ -388,150 +380,37 @@ export class Zenlayer implements INodeType {
                 store?: boolean;
                 toolChoice?: string;
             };
-
             const maxRetries = options.maxRetries ?? 2;
             const timeout = options.timeout ?? 60000;
 
-            let attempt = 0;
-            let responseData;
+            const body = resource === 'image'
+                ? await handleImageResource(this, i, model)
+                : await handleChatResource(this, i, model, requestMode, options);
 
-            let endpoint;
+            let responseData = await zenlayerRequest(this, {
+                method: 'POST',
+                url: resource === 'image' ? '/responses' : requestMode === 'chat' ? '/chat/completions' : '/responses',
+                body,
+                timeout,
+                maxRetries,
+            });
 
-            let body: any;
-
-            if (resource === 'image') {
-                endpoint = '/responses';
-                body = await handleImageResource(this, i, model);
-            } else {
-                endpoint = requestMode === 'responses' ? '/responses' : '/chat/completions';
-                body = await handleChatResource(this, i, model, requestMode, options);
-            }
-
-            while (attempt <= maxRetries) {
-                try {
-                    responseData = await this.helpers.httpRequest({
-                        method: 'POST',
-                        url: `${baseURL}${endpoint}`,
-                        headers: {
-                            Authorization: `Bearer ${apiKey}`,
-                            'Content-Type': 'application/json',
-                        },
-                        body,
-                        timeout,
-                        json: true,
-                    });
-
-                    break;
-                } catch (error) {
-                    attempt++;
-                    if (attempt > maxRetries) {
-                        throw new NodeApiError(this.getNode(), error, {
-                            message: `Zenlayer API request failed after ${maxRetries} retries.`,
+            if (resource === 'text') {
+                responseData = await handleToolLoop(
+                    this,
+                    requestMode as 'chat' | 'responses',
+                    body,
+                    responseData,
+                    async (reqBody: any) => {
+                        return await zenlayerRequest(this, {
+                            method: 'POST',
+                            url: requestMode === 'chat' ? '/chat/completions' : '/responses',
+                            body: reqBody,
+                            timeout,
+                            maxRetries,
                         });
-                    }
-                }
-            }
-
-            if (requestMode == 'chat' && resource === 'text') {
-				const messages = body.messages;
-
-				while (true) {
-					const message = responseData.choices?.[0]?.message;
-
-					if (!message?.tool_calls || message.tool_calls.length === 0) {
-						break;
-					}
-
-					// 把 assistant 的 tool_calls 回写
-					messages.push({
-						role: 'assistant',
-						tool_calls: message.tool_calls,
-					});
-
-					// 执行每一个 tool
-					for (const toolCall of message.tool_calls) {
-						const result = await executeTool(this, toolCall);
-
-						messages.push({
-							role: 'tool',
-							tool_call_id: result.callId,
-							content: result.output,
-						});
-					}
-
-					// 再次请求模型
-					responseData = await this.helpers.httpRequest({
-						method: 'POST',
-						url: `${baseURL}/chat/completions`,
-						headers: {
-							Authorization: `Bearer ${apiKey}`,
-							'Content-Type': 'application/json',
-						},
-						body: {
-							...body,
-							messages,
-						},
-						timeout,
-						json: true,
-					});
-				}
-
-            } else  if (requestMode == 'responses' && resource === 'text') {
-				let input = body.input;
-
-				while (true) {
-					const funcCalls = (responseData.output ?? []).filter(
-						(o: any) => o.type === 'function_call',
-					);
-
-					if (funcCalls.length === 0) {
-						break;
-					}
-
-					const toolOutputs = [];
-
-
-					for (const funcCall of funcCalls) {
-						const result = await executeTool(this, {
-							id: funcCall.id,
-							function: {
-								name: funcCall.name,
-								arguments: funcCall.arguments,
-							},
-						});
-
-						toolOutputs.push(
-							{
-								type: 'function_call',
-								name: funcCall.name,
-								arguments: funcCall.arguments,
-								call_id: funcCall.id,
-							},
-							{
-								type: 'function_call_output',
-								call_id: result.callId,
-								output: result.output,
-							}
-						);
-					}
-
-					input = input.concat(toolOutputs);
-
-					responseData = await this.helpers.httpRequest({
-						method: 'POST',
-						url: `${baseURL}/responses`,
-						headers: {
-							Authorization: `Bearer ${apiKey}`,
-							'Content-Type': 'application/json',
-						},
-						body: {
-							...body,
-							input,
-						},
-						timeout,
-						json: true,
-					});
-				}
+                    },
+                );
             }
 
             returnData.push({ json: responseData });
@@ -541,169 +420,135 @@ export class Zenlayer implements INodeType {
     }
 }
 
-async function handleImageResource(
+async function executeTool(
     context: IExecuteFunctions,
-    i: number,
-    model: string,
-): Promise<any> {
-    const operation = context.getNodeParameter('zenOperation', i, 'analyze') as string;
-    if (operation === 'analyze') {
-        const imagePrompt = context.getNodeParameter('imagePrompt', i) as string;
-        const imageUrl = context.getNodeParameter('imageUrls', i) as string;
+    toolCall: any,
+): Promise<{ callId: string; output: string }> {
+    const tools = await context.getInputConnectionData(
+        NodeConnectionTypes.AiTool,
+        0,
+    ) as any[];
 
-        const input: any[] = [
-            {
-                role: 'user',
-                content: [{ type: 'input_text', text: imagePrompt }],
-            },
-        ];
+    const tool = tools.find((t) => t.name === toolCall.function.name);
+    if (!tool) {
+        throw new NodeOperationError(
+            context.getNode(),
+            `Tool "${toolCall.function.name}" not found`,
+        );
+    }
 
-        const urls = imageUrl
-            .split(',')
-            .map((u) => u.trim())
-            .filter(Boolean);
-        for (const url of urls) {
-            input[0].content.push({
-                type: 'input_image',
-                image_url: url,
+    const args = JSON.parse(toolCall.function.arguments || '{}');
+    const result = await tool.invoke(args);
+    context.logger.info(`Executing tool: ${toolCall.function.name}`);
+
+    return {
+        callId: toolCall.id,
+        output: typeof result === 'string' ? result : JSON.stringify(result),
+    };
+}
+
+async function handleToolLoop(
+    context: IExecuteFunctions,
+    mode: 'chat' | 'responses',
+    request: any,
+    response: any,
+    callApi: (body: any) => Promise<any>,
+) {
+    while (true) {
+        const calls =
+            mode === 'chat'
+                ? response.choices?.[0]?.message?.tool_calls ?? []
+                : (response.output ?? []).filter((o: any) => o.type === 'function_call');
+
+        if (calls.length === 0) break;
+
+        if (mode === 'chat') {
+            request.messages.push({
+                role: 'assistant',
+                tool_calls: calls,
             });
+
+            for (const call of calls) {
+                const result = await executeTool(context, call);
+                request.messages.push({
+                    role: 'tool',
+                    tool_call_id: result.callId,
+                    content: result.output,
+                });
+            }
+        } else {
+            const toolEvents = [];
+
+            for (const call of calls) {
+                const result = await executeTool(context, {
+                    id: call.id,
+                    function: {
+                        name: call.name,
+                        arguments: call.arguments,
+                    },
+                });
+
+                toolEvents.push(
+                    {
+                        type: 'function_call',
+                        name: call.name,
+                        arguments: call.arguments,
+                        call_id: call.id,
+                    },
+                    {
+                        type: 'function_call_output',
+                        call_id: result.callId,
+                        output: result.output,
+                    },
+                );
+            }
+
+            request.input = request.input.concat(toolEvents);
         }
 
-        return {
-            model,
-            input,
-        };
+        response = await callApi(request);
     }
-    throw new NodeOperationError(context.getNode(), 'Unsupported image operation.');
+
+    return response;
 }
 
-async function handleChatResource(
+async function zenlayerRequest(
     context: IExecuteFunctions,
-    i: number,
-    model: string,
-    mode: string,
-    options: any,
-): Promise<any> {
-    const toolsCollection = await context.getInputConnectionData(NodeConnectionTypes.AiTool, 0) as any;
-	const inputTools: Array<{
-		type?: string;
-		name?: string;
-		description?: string;
-		parameters?: Record<string, any>;
-	}> = [];
+    params: {
+        method: 'POST' | 'GET';
+        url: string;
+        body?: any;
+        timeout: number;
+        maxRetries: number;
+    },
+) {
+    const credentials = await context.getCredentials('zenlayerApi');
+    const baseURL = credentials.url;
+    const apiKey = credentials.apiKey;
 
-    for (const tool of toolsCollection) {
-        context.logger.info(`Processing tool: ${tool?.name || 'Unnamed Tool'} typeof ${typeof tool}`);
-
-		for (const key of Object.keys(tool)) {
-			context.logger.info(`Tool property - ${key}: ${JSON.stringify((tool as any)[key])}`);
-		}
-
-		inputTools.push({
-			type: tool.type,
-			name: tool.name,
-			description: tool.description,
-			parameters: zodToJsonSchema(tool.schema)|| {},
-		});
-		context.logger.info(`Added tool from toolkit: ${tool.name}`);
+    if (!baseURL || !apiKey) {
+        throw new NodeOperationError(context.getNode(), 'Zenlayer API credentials not configured properly.');
     }
 
-    const promptCollection = context.getNodeParameter('prompt', i, {}) as {
-        messages?: Array<{ role: string; content: string }>;
-    };
+    let attempt = 0;
 
-    const inputEvents: any[] = [];
-    for (const m of promptCollection.messages ?? []) {
-        inputEvents.push({
-            type: 'message',
-            role: m.role,
-            content: m.content,
-        });
-    }
-
-    const chatMessages: any[] = [];
-    for (const m of promptCollection.messages ?? []) {
-        chatMessages.push({
-            role: m.role,
-            content: m.content,
-        });
-    }
-
-    if (mode === 'chat') {
-        return {
-            model,
-            messages: chatMessages,
-            max_tokens: options.maxTokens === -1 ? undefined : options.maxTokens,
-            temperature: options.temperature,
-            top_p: options.topP,
-            response_format:
-                options.responseFormat === 'json_object'
-                    ? { type: 'json_object' }
-                    : undefined,
-            tools: (inputTools ?? []).map((t) => ({
-				type: t.type ?? 'function',
-                function: {
-                    name: t.name,
-                    description: t.description,
-                    parameters: t.parameters,
+    while (true) {
+        try {
+            return await context.helpers.httpRequest({
+                method: params.method,
+                url: `${baseURL}${params.url}`,
+                headers: {
+                    Authorization: `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json',
                 },
-			})),
-            tool_choice: options.toolChoice ?? 'auto',
-        };
-    } else if (mode === 'responses') {
-        return {
-            model,
-            input: inputEvents,
-            max_tokens: options.maxTokens === -1 ? undefined : options.maxTokens,
-            temperature: options.temperature,
-            top_p: options.topP,
-            response_format:
-                options.responseFormat === 'json_object'
-                    ? { type: 'json_object' }
-                    : undefined,
-            parallel_tool_calls: options.parallelToolCalls ?? true,
-            store: options.store ?? false,
-            background: options.background ?? false,
-            tools: (inputTools ?? []).map((t) => ({
-				type: t.type ?? 'function',
-				name: t.name,
-				description: t.description,
-				parameters: t.parameters,
-			})),
-            tool_choice: options.toolChoice ?? 'auto',
-        };
+                body: params.body,
+                timeout: params.timeout,
+                json: true,
+            });
+        } catch (error) {
+            if (attempt++ >= params.maxRetries) {
+                throw new NodeApiError(context.getNode(), error);
+            }
+        }
     }
-    throw new NodeOperationError(context.getNode(), 'Unsupported chat operation.');
-}
-
-async function executeTool(
-	context: IExecuteFunctions,
-	toolCall: any,
-): Promise<{ callId: string; output: string }> {
-	const toolName = toolCall.function.name;
-	const args = JSON.parse(toolCall.function.arguments || '{}');
-
-	// 通过 AiTool 连接获取所有 tool
-	const tools = await context.getInputConnectionData(
-		NodeConnectionTypes.AiTool,
-		0,
-	) as any[];
-
-	const tool = tools.find((t) => t.name === toolName);
-
-	if (!tool) {
-		throw new NodeOperationError(
-			context.getNode(),
-			`Tool "${toolName}" not found`,
-		);
-	}
-
-	context.logger.info(`Executing tool: ${toolName}`);
-
-	const result = await tool.invoke(args);
-
-	return {
-		callId: toolCall.id,
-		output: typeof result === 'string' ? result : JSON.stringify(result),
-	};
 }
