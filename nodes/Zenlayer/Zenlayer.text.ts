@@ -9,6 +9,13 @@ async function buildTools(
         0,
     ) as any[];
 
+    for (const tool of tools) {
+		context.logger.info(`Processing tool: ${tool?.name || 'Unnamed Tool'} typeof ${typeof tool}`);
+		for (const key of Object.keys(tool)) {
+			context.logger.info(`Tool property - ${key}: ${JSON.stringify((tool as any)[key])}`);
+		}
+	}
+
     return (tools ?? []).map((t) => ({
         type: t.type ?? 'function',
         name: t.name,
