@@ -7,7 +7,7 @@ export type InputMessage = {
     content: InputContent[];
 };
 
-export type ToolsRequest =
+type ToolsRequest =
 	| {
 			type: string | 'function';
 			function: {
@@ -36,7 +36,7 @@ export interface ZenOptions {
 	toolChoice?: string;
 }
 
-export interface ChatResourceRequest 	{
+interface ChatResourceRequest 	{
 	model: string;
 	messages?: Array<{ role: string; content: string }>;
 	input?: Array<{ type: string; role: string; content: string }>;
@@ -51,7 +51,9 @@ export interface ChatResourceRequest 	{
 	background?: boolean;
 }
 
-export interface ImageResourceRequest {
+interface ImageResourceRequest {
 	model: string;
 	input: InputMessage[];
 }
+
+export type ZenlayerResourceRequest = ChatResourceRequest | ImageResourceRequest;
