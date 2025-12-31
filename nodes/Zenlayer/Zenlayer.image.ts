@@ -1,12 +1,11 @@
 import { IExecuteFunctions, NodeOperationError } from 'n8n-workflow';
-import { InputMessage } from "./Zenlayer.constants";
+import { ImageResourceRequest, InputMessage } from './Zenlayer.constants';
 
 export async function handleImageResource(
     context: IExecuteFunctions,
     i: number,
     model: string,
-	// eslint-disable-next-line
-): Promise<any> {
+): Promise<ImageResourceRequest> {
     const operation = context.getNodeParameter('zenOperation', i, 'analyze') as string;
     if (operation === 'analyze') {
         const imagePrompt = context.getNodeParameter('imagePrompt', i) as string;

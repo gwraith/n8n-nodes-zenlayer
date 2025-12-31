@@ -6,24 +6,24 @@ import {
 
 // eslint-disable-next-line @n8n/community-nodes/no-restricted-imports
 import {zodToJsonSchema} from "zod-to-json-schema";
+import { ChatResourceRequest, ZenOptions } from './Zenlayer.constants';
 
 async function buildTools(
     context: IExecuteFunctions,
 ) {
-    const tools = await context.getInputConnectionData(
-        NodeConnectionTypes.AiTool,
-        0,
-        // eslint-disable-next-line
-    ) as any[];
-
-	/*
-	for (const tool of tools) {
-		context.logger.info(`Processing tool: ${tool?.name || 'Unnamed Tool'} typeof ${typeof tool}`);
-		for (const key of Object.keys(tool)) {
-			context.logger.info(`Tool property - ${key}: ${JSON.stringify((tool as any)[key])}`);
-		}
+    const tools = await context.getInputConnectionData(NodeConnectionTypes.AiTool, 0);
+	if (!tools || !Array.isArray(tools)) {
+		throw new NodeOperationError(context.getNode(), 'No tool inputs found');
 	}
-	*/
+
+		/*
+		for (const tool of tools) {
+			context.logger.info(`Processing tool: ${tool?.name || 'Unnamed Tool'} typeof ${typeof tool}`);
+			for (const key of Object.keys(tool)) {
+				context.logger.info(`Tool property - ${key}: ${JSON.stringify((tool as any)[key])}`);
+			}
+		}
+		*/
 
     return (tools ?? []).map((t) => ({
         type: t.type ?? 'function',
@@ -38,10 +38,8 @@ export async function handleChatResource(
     i: number,
     model: string,
     mode: string,
-	// eslint-disable-next-line
-    options: any,
-	// eslint-disable-next-line
-): Promise<any> {
+    options: ZenOptions,
+): Promise<ChatResourceRequest> {
     const inputTools = await buildTools(context);
     const promptCollection = context.getNodeParameter('prompt', i, {}) as {
         messages?: Array<{ role: string; content: string }>;

@@ -10,6 +10,7 @@ import {
 
 import {handleImageResource} from "./Zenlayer.image";
 import {handleChatResource} from "./Zenlayer.text";
+import { ZenOptions } from './Zenlayer.constants';
 
 export class Zenlayer implements INodeType {
     description: INodeTypeDescription = {
@@ -368,18 +369,7 @@ export class Zenlayer implements INodeType {
             const requestMode = this.getNodeParameter('requestMode', i, 'chat') as string;
             const model = this.getNodeParameter('model', i) as string;
             const resource = this.getNodeParameter('resource', i) as string;
-            const options = this.getNodeParameter('options', i, {}) as {
-                background?: boolean;
-                maxRetries?: number;
-                maxTokens?: number;
-                responseFormat?: string;
-                temperature?: number;
-                timeout?: number;
-                topP?: number;
-                parallelToolCalls?: boolean;
-                store?: boolean;
-                toolChoice?: string;
-            };
+            const options = this.getNodeParameter('options', i, {}) as ZenOptions;
             const maxRetries = options.maxRetries ?? 2;
             const timeout = options.timeout ?? 60000;
 
