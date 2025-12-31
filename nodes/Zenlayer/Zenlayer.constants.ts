@@ -71,7 +71,7 @@ export interface ZenOptions {
 	toolChoice?: string;
 }
 
-interface ChatResourceRequest 	{
+export interface ChatResourceRequest 	{
 	model: string;
 	messages?: Array<ChatTextMessage | ChatMessageToolCall | ChatMessageToolCallOutput>;
 	input?: Array<ResponseTextInputMessage | ResponseTextFunctionCall | ResponseTextFunctionCallOutPut>;

@@ -8,9 +8,15 @@ import {
 	NodeOperationError,
 } from 'n8n-workflow';
 
-import {handleImageResource} from "./Zenlayer.image";
+import { handleImageResource } from "./Zenlayer.image";
 import { handleChatResource } from './Zenlayer.text';
-import { IToolCall, ZenOptions } from './Zenlayer.constants';
+import {
+	ChatResourceRequest,
+	IToolCall,
+	ResponseTextFunctionCall,
+	ResponseTextFunctionCallOutPut,
+	ZenOptions,
+} from './Zenlayer.constants';
 
 export class Zenlayer implements INodeType {
     description: INodeTypeDescription = {
@@ -389,7 +395,7 @@ export class Zenlayer implements INodeType {
                 responseData = await handleToolLoop(
                     this,
                     requestMode as 'chat' | 'responses',
-                    body,
+                    body as ChatResourceRequest,
                     responseData,
                     async (reqBody) => {
                         return await zenlayerRequest(this, {
@@ -440,12 +446,11 @@ async function executeTool(
 async function handleToolLoop(
     context: IExecuteFunctions,
     mode: 'chat' | 'responses',
-    // eslint-disable-next-line
-    request: any,
+    request: ChatResourceRequest,
     // eslint-disable-next-line
     response: any,
     // eslint-disable-next-line
-    callApi: (body: any) => Promise<any>,
+    callApi: (body: ChatResourceRequest) => Promise<any>,
 ) {
     while (true) {
         const calls =
@@ -457,21 +462,25 @@ async function handleToolLoop(
         if (calls.length === 0) break;
 
         if (mode === 'chat') {
-            request.messages.push({
-                role: 'assistant',
-                tool_calls: calls,
-            });
+			if (Array.isArray(request.messages)) {
+				request.messages.push({
+					role: 'assistant',
+					tool_calls: calls,
+				});
+			}
 
             for (const call of calls) {
                 const result = await executeTool(context, call);
-                request.messages.push({
-                    role: 'tool',
-                    tool_call_id: result.callId,
-                    content: result.output,
-                });
+				if (Array.isArray(request.messages)) {
+					request.messages.push({
+						role: 'tool',
+						tool_call_id: result.callId,
+						content: result.output,
+					});
+				}
             }
         } else {
-            const toolEvents = [];
+            const toolEvents = Array<ResponseTextFunctionCall | ResponseTextFunctionCallOutPut>();
 
             for (const call of calls) {
                 const result = await executeTool(context, {
@@ -498,7 +507,9 @@ async function handleToolLoop(
                 );
             }
 
-            request.input = request.input.concat(toolEvents);
+			if (Array.isArray(request.input)) {
+				request.input = request.input.concat(toolEvents);
+			}
         }
 
         response = await callApi(request);
