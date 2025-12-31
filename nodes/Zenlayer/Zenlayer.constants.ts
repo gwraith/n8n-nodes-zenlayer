@@ -86,12 +86,12 @@ export interface TextResourceRequest {
 	background?: boolean;
 }
 
-interface ImageResourceRequest {
+export interface ImageResourceRequest {
 	model: string;
 	input: ResponsesImageInputMessage[];
 }
 
-export type ZenlayerResourceRequest = TextResourceRequest | ImageResourceRequest;
+export type IResourceRequest = TextResourceRequest | ImageResourceRequest;
 
 
 export interface IToolCall {
