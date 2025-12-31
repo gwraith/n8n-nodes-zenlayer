@@ -71,7 +71,7 @@ export interface ZenOptions {
 	toolChoice?: string;
 }
 
-export interface ChatResourceRequest 	{
+export interface TextResourceRequest {
 	model: string;
 	messages?: Array<ChatTextMessage | ChatMessageToolCall | ChatMessageToolCallOutput>;
 	input?: Array<ResponseTextInputMessage | ResponseTextFunctionCall | ResponseTextFunctionCallOutPut>;
@@ -91,7 +91,7 @@ interface ImageResourceRequest {
 	input: ResponsesImageInputMessage[];
 }
 
-export type ZenlayerResourceRequest = ChatResourceRequest | ImageResourceRequest;
+export type ZenlayerResourceRequest = TextResourceRequest | ImageResourceRequest;
 
 
 export interface IToolCall {

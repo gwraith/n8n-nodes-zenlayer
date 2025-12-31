@@ -11,7 +11,7 @@ import {
 import { handleImageResource } from "./Zenlayer.image";
 import { handleChatResource } from './Zenlayer.text';
 import {
-	ChatResourceRequest,
+	TextResourceRequest,
 	IToolCall,
 	ResponseTextFunctionCall,
 	ResponseTextFunctionCallOutPut,
@@ -395,7 +395,7 @@ export class Zenlayer implements INodeType {
                 responseData = await handleToolLoop(
                     this,
                     requestMode as 'chat' | 'responses',
-                    body as ChatResourceRequest,
+                    body as TextResourceRequest,
                     responseData,
                     async (reqBody) => {
                         return await zenlayerRequest(this, {
@@ -446,11 +446,11 @@ async function executeTool(
 async function handleToolLoop(
     context: IExecuteFunctions,
     mode: 'chat' | 'responses',
-    request: ChatResourceRequest,
+    request: TextResourceRequest,
     // eslint-disable-next-line
     response: any,
     // eslint-disable-next-line
-    callApi: (body: ChatResourceRequest) => Promise<any>,
+    callApi: (body: TextResourceRequest) => Promise<any>,
 ) {
     while (true) {
         const calls =
