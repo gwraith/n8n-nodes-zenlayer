@@ -1,11 +1,46 @@
-export type InputContent =
+export type ResponsesImageInputContent =
     | { type: 'input_text'; text: string }
     | { type: 'input_image'; image_url: string };
 
-export type InputMessage = {
+export type ResponsesImageInputMessage = {
     role: 'user' | 'system' | 'assistant';
-    content: InputContent[];
+    content: ResponsesImageInputContent[];
 };
+
+export interface ResponseTextInputMessage {
+	type: 'message';
+	role: string;
+	content: string;
+}
+
+export interface ResponseTextFunctionCall {
+	type: 'function_call',
+	name: string,
+	arguments: string,
+	call_id: string,
+}
+
+export interface ResponseTextFunctionCallOutPut {
+	type: 'function_call_output',
+	call_id: string,
+	output: string,
+}
+
+export interface ChatTextMessage {
+	role: string;
+	content: string;
+}
+
+export interface ChatMessageToolCall {
+	role: string;
+	tool_calls: object;
+}
+
+export interface ChatMessageToolCallOutput {
+	role: string;
+	tool_call_id: string;
+	content: string;
+}
 
 type ToolsRequest =
 	| {
@@ -38,8 +73,8 @@ export interface ZenOptions {
 
 interface ChatResourceRequest 	{
 	model: string;
-	messages?: Array<{ role: string; content: string }>;
-	input?: Array<{ type: string; role: string; content: string }>;
+	messages?: Array<ChatTextMessage | ChatMessageToolCall | ChatMessageToolCallOutput>;
+	input?: Array<ResponseTextInputMessage | ResponseTextFunctionCall | ResponseTextFunctionCallOutPut>;
 	max_tokens?: number;
 	temperature?: number;
 	top_p?: number;
@@ -53,7 +88,7 @@ interface ChatResourceRequest 	{
 
 interface ImageResourceRequest {
 	model: string;
-	input: InputMessage[];
+	input: ResponsesImageInputMessage[];
 }
 
 export type ZenlayerResourceRequest = ChatResourceRequest | ImageResourceRequest;

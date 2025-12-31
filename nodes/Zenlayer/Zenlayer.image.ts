@@ -1,5 +1,5 @@
 import { IExecuteFunctions, NodeOperationError } from 'n8n-workflow';
-import { InputMessage, ZenlayerResourceRequest } from './Zenlayer.constants';
+import { ResponsesImageInputMessage, ZenlayerResourceRequest } from './Zenlayer.constants';
 
 export async function handleImageResource(
     context: IExecuteFunctions,
@@ -11,7 +11,7 @@ export async function handleImageResource(
         const imagePrompt = context.getNodeParameter('imagePrompt', i) as string;
         const imageUrl = context.getNodeParameter('imageUrls', i) as string;
 
-        const input: InputMessage[] = [
+        const input: ResponsesImageInputMessage[] = [
             {
                 role: 'user',
                 content: [{ type: 'input_text', text: imagePrompt }],
