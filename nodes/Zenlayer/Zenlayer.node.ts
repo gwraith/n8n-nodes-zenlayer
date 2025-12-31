@@ -9,8 +9,8 @@ import {
 } from 'n8n-workflow';
 
 import {handleImageResource} from "./Zenlayer.image";
-import {handleChatResource} from "./Zenlayer.text";
-import { ZenOptions } from './Zenlayer.constants';
+import { handleChatResource } from './Zenlayer.text';
+import { IToolCall, ZenOptions } from './Zenlayer.constants';
 
 export class Zenlayer implements INodeType {
     description: INodeTypeDescription = {
@@ -412,14 +412,12 @@ export class Zenlayer implements INodeType {
 
 async function executeTool(
     context: IExecuteFunctions,
-    // eslint-disable-next-line
-    toolCall: any,
+    toolCall: IToolCall,
 ): Promise<{ callId: string; output: string }> {
-    const tools = await context.getInputConnectionData(
-        NodeConnectionTypes.AiTool,
-        0,
-        // eslint-disable-next-line
-    ) as any[];
+    const tools = await context.getInputConnectionData(NodeConnectionTypes.AiTool, 0);
+	if (!tools || !Array.isArray(tools)) {
+		throw new NodeOperationError(context.getNode(), 'No tool inputs found');
+	}
 
     const tool = tools.find((t) => t.name === toolCall.function.name);
     if (!tool) {
@@ -482,6 +480,7 @@ async function handleToolLoop(
                         name: call.name,
                         arguments: call.arguments,
                     },
+					type: 'function'
                 });
 
                 toolEvents.push(

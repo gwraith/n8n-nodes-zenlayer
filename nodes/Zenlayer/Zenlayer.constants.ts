@@ -57,3 +57,13 @@ interface ImageResourceRequest {
 }
 
 export type ZenlayerResourceRequest = ChatResourceRequest | ImageResourceRequest;
+
+
+export interface IToolCall {
+	type: string | 'function';
+	id: string;
+	function: {
+		name: string;
+		arguments: string;
+	}
+}
