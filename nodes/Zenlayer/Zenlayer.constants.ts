@@ -8,7 +8,7 @@ export type ImageInputMessage = {
 };
 
 export interface ResponseTextInputMessage {
-	type: 'message';
+	type: string;
 	role: string;
 	content: string;
 }
