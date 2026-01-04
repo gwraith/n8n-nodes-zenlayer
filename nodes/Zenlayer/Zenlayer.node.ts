@@ -16,6 +16,11 @@ import {
 	ResponseTextFunctionCall,
 	ResponseTextFunctionCallOutPut,
 	ZenOptions,
+	IResourceRequest,
+	TextResponseOutput,
+	TextResponse,
+	TextChatRespData,
+	TextResponseData,
 } from './Zenlayer.constants';
 
 export class Zenlayer implements INodeType {
@@ -173,11 +178,11 @@ export class Zenlayer implements INodeType {
                     { name: 'Responses API', value: 'responses' },
                 ],
                 description: 'Choose which Zenlayer endpoint to call',
-                displayOptions: {
-                    show: {
-                        '/resource': ['text'],
-                    },
-                },
+                //displayOptions: {
+                //    show: {
+                //        '/resource': ['text'],
+                //    },
+                //},
             },
             {
                 displayName: 'Prompt',
@@ -380,16 +385,18 @@ export class Zenlayer implements INodeType {
             const timeout = options.timeout ?? 60000;
 
             const body = resource === 'image'
-                ? await handleImageResource(this, i, model)
+                ? await handleImageResource(this, i, model, requestMode)
                 : await handleChatResource(this, i, model, requestMode, options);
 
             let responseData = await zenlayerRequest(this, {
                 method: 'POST',
-                url: resource === 'image' ? '/responses' : requestMode === 'chat' ? '/chat/completions' : '/responses',
+                url: requestMode === 'chat' ? '/chat/completions' : '/responses',
                 body,
                 timeout,
                 maxRetries,
             });
+
+			this.logger.info(`responseData: ${JSON.stringify(responseData)}`);
 
             if (resource === 'text') {
                 responseData = await handleToolLoop(
@@ -447,17 +454,14 @@ async function handleToolLoop(
     context: IExecuteFunctions,
     mode: 'chat' | 'responses',
     request: TextResourceRequest,
-    // eslint-disable-next-line
-    response: any,
-    // eslint-disable-next-line
-    callApi: (body: TextResourceRequest) => Promise<any>,
+    response: TextResponse,
+    callApi: (body: TextResourceRequest) => Promise<TextResponse>,
 ) {
     while (true) {
         const calls =
             mode === 'chat'
-                ? response.choices?.[0]?.message?.tool_calls ?? []
-                // eslint-disable-next-line
-                : (response.output ?? []).filter((o: any) => o.type === 'function_call');
+                ? (response as TextChatRespData).choices[0].message?.tool_calls ?? []
+                : ((response as TextResponseData).output ?? []).filter((o: TextResponseOutput) => o.type === 'function_call');
 
         if (calls.length === 0) break;
 
@@ -469,7 +473,7 @@ async function handleToolLoop(
 				});
 			}
 
-            for (const call of calls) {
+            for (const call of calls as IToolCall[]) {
                 const result = await executeTool(context, call);
 				if (Array.isArray(request.messages)) {
 					request.messages.push({
@@ -482,30 +486,37 @@ async function handleToolLoop(
         } else {
             const toolEvents = Array<ResponseTextFunctionCall | ResponseTextFunctionCallOutPut>();
 
-            for (const call of calls) {
-                const result = await executeTool(context, {
-                    id: call.id,
-                    function: {
-                        name: call.name,
-                        arguments: call.arguments,
-                    },
-					type: 'function'
-                });
+            for (const call of calls as {
+				id: string;
+				type: string;
+				name: string;
+				arguments: string;
+				call_id: string;
+				status: string;
+			}[]) {
+				const result = await executeTool(context, {
+					id: call.id,
+					function: {
+						name: call.name,
+						arguments: call.arguments,
+					},
+					type: 'function',
+				});
 
-                toolEvents.push(
-                    {
-                        type: 'function_call',
-                        name: call.name,
-                        arguments: call.arguments,
-                        call_id: call.id,
-                    },
-                    {
-                        type: 'function_call_output',
-                        call_id: result.callId,
-                        output: result.output,
-                    },
-                );
-            }
+				toolEvents.push(
+					{
+						type: 'function_call',
+						name: call.name,
+						arguments: call.arguments,
+						call_id: call.id,
+					},
+					{
+						type: 'function_call_output',
+						call_id: result.callId,
+						output: result.output,
+					},
+				);
+			}
 
 			if (Array.isArray(request.input)) {
 				request.input = request.input.concat(toolEvents);
@@ -523,8 +534,7 @@ async function zenlayerRequest(
     params: {
         method: 'POST' | 'GET';
         url: string;
-        // eslint-disable-next-line
-        body?: any;
+        body?: IResourceRequest;
         timeout: number;
         maxRetries: number;
     },

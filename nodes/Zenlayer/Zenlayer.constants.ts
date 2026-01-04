@@ -1,10 +1,10 @@
-export type ResponsesImageInputContent =
-    | { type: 'input_text'; text: string }
-    | { type: 'input_image'; image_url: string };
+export type ImageInputContent =
+    | { type: string; text: string }
+    | { type: string; image_url: string | { url: string } };
 
-export type ResponsesImageInputMessage = {
-    role: 'user' | 'system' | 'assistant';
-    content: ResponsesImageInputContent[];
+export type ImageInputMessage = {
+    role: string;
+    content: ImageInputContent[];
 };
 
 export interface ResponseTextInputMessage {
@@ -88,7 +88,8 @@ export interface TextResourceRequest {
 
 export interface ImageResourceRequest {
 	model: string;
-	input: ResponsesImageInputMessage[];
+	input?: ImageInputMessage[];
+	messages?: ImageInputMessage[];
 }
 
 export type IResourceRequest = TextResourceRequest | ImageResourceRequest;
@@ -102,3 +103,53 @@ export interface IToolCall {
 		arguments: string;
 	}
 }
+
+export type TextResponseOutput =
+	| {
+			id: string;
+			type: string;
+			summary: object;
+	  }
+	| {
+			id: string;
+			type: string;
+			status: string;
+			content: object;
+			role: string;
+	  }
+	| {
+			id: string;
+			type: string;
+			name: string;
+			arguments: string;
+			call_id: string;
+			status: string;
+	  };
+
+export interface TextResponseData {
+	id: string;
+	object: string;
+	created_at: number;
+	model: string;
+	output: TextResponseOutput[];
+}
+
+export type ChatResponseChoice = {
+	index: number;
+	message: {
+		role: string;
+		content?: string;
+		tool_calls?: IToolCall[];
+	};
+	finish_reason: string;
+}
+
+export interface TextChatRespData {
+	id: string;
+	object: string;
+	created: number;
+	model: string;
+	choices: ChatResponseChoice[];
+}
+
+export type TextResponse = TextResponseData | TextChatRespData;
