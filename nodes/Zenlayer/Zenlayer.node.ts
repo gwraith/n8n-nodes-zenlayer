@@ -396,8 +396,6 @@ export class Zenlayer implements INodeType {
                 maxRetries,
             });
 
-			this.logger.info(`responseData: ${JSON.stringify(responseData)}`);
-
             if (resource === 'text') {
                 responseData = await handleToolLoop(
                     this,
