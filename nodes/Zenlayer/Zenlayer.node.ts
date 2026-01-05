@@ -17,10 +17,10 @@ import {
 	ResponseTextFunctionCallOutPut,
 	ZenOptions,
 	IResourceRequest,
-	TextResponseOutput,
+	RespResponseOutput,
 	TextResponse,
-	TextChatRespData,
-	TextResponseData,
+	ChatResponse,
+	RespResponse,
 } from './Zenlayer.constants';
 
 export class Zenlayer implements INodeType {
@@ -458,8 +458,8 @@ async function handleToolLoop(
     while (true) {
         const calls =
             mode === 'chat'
-                ? (response as TextChatRespData).choices[0].message?.tool_calls ?? []
-                : ((response as TextResponseData).output ?? []).filter((o: TextResponseOutput) => o.type === 'function_call');
+                ? (response as ChatResponse).choices[0].message?.tool_calls ?? []
+                : ((response as RespResponse).output ?? []).filter((o: RespResponseOutput) => o.type === 'function_call');
 
         if (calls.length === 0) break;
 

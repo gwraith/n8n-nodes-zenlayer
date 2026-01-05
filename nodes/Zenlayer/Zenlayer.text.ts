@@ -16,14 +16,14 @@ async function buildTools(
 		throw new NodeOperationError(context.getNode(), 'No tool inputs found');
 	}
 
-		/*
-		for (const tool of tools) {
-			context.logger.info(`Processing tool: ${tool?.name || 'Unnamed Tool'} typeof ${typeof tool}`);
-			for (const key of Object.keys(tool)) {
-				context.logger.info(`Tool property - ${key}: ${JSON.stringify((tool as any)[key])}`);
-			}
+	/*
+	for (const tool of tools) {
+		context.logger.info(`Processing tool: ${tool?.name || 'Unnamed Tool'} typeof ${typeof tool}`);
+		for (const key of Object.keys(tool)) {
+			context.logger.info(`Tool property - ${key}: ${JSON.stringify((tool as any)[key])}`);
 		}
-		*/
+	}
+	*/
 
     return (tools ?? []).map((t) => ({
         type: t.type ?? 'function',

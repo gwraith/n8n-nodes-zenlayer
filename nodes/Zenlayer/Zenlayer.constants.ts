@@ -104,7 +104,7 @@ export interface IToolCall {
 	}
 }
 
-export type TextResponseOutput =
+export type RespResponseOutput =
 	| {
 			id: string;
 			type: string;
@@ -126,12 +126,12 @@ export type TextResponseOutput =
 			status: string;
 	  };
 
-export interface TextResponseData {
+export interface RespResponse {
 	id: string;
 	object: string;
 	created_at: number;
 	model: string;
-	output: TextResponseOutput[];
+	output: RespResponseOutput[];
 }
 
 export type ChatResponseChoice = {
@@ -144,7 +144,7 @@ export type ChatResponseChoice = {
 	finish_reason: string;
 }
 
-export interface TextChatRespData {
+export interface ChatResponse {
 	id: string;
 	object: string;
 	created: number;
@@ -152,4 +152,4 @@ export interface TextChatRespData {
 	choices: ChatResponseChoice[];
 }
 
-export type TextResponse = TextResponseData | TextChatRespData;
+export type TextResponse = RespResponse | ChatResponse;
