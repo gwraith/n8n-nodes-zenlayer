@@ -42,21 +42,21 @@ export interface ChatMessageToolCallOutput {
 	content: string;
 }
 
-type ToolsRequest =
-	| {
-			type: string | 'function';
-			function: {
-				name: string;
-				description: string;
-				parameters: object;
-			};
-	  }
-	| {
-			type: string | 'function';
-			name: string;
-			description: string;
-			parameters: object;
-	  };
+export interface ChatRequestTools {
+    type: string | 'function';
+    function: {
+        name: string;
+        description: string;
+        parameters: object;
+    };
+}
+
+export interface RespRequestTools {
+    type: string | 'function';
+    name: string;
+    description: string;
+    parameters: object;
+}
 
 export interface ModelRequestOptions {
 	background?: boolean;
@@ -79,7 +79,7 @@ export interface TextResourceRequest {
 	temperature?: number;
 	top_p?: number;
 	response_format?: { type: string };
-	tools?: Array<ToolsRequest>;
+	tools?: Array<ChatRequestTools | RespRequestTools>;
 	tool_choice?: string;
 	parallel_tool_calls?: boolean;
 	store?: boolean;
