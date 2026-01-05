@@ -6,7 +6,7 @@ import {
 
 // eslint-disable-next-line @n8n/community-nodes/no-restricted-imports
 import {zodToJsonSchema} from "zod-to-json-schema";
-import { IResourceRequest, ZenOptions } from './interface';
+import { IResourceRequest, ModelRequestOptions } from './interface';
 
 async function buildTools(
     context: IExecuteFunctions,
@@ -38,7 +38,7 @@ export async function handleChatResource(
     i: number,
     model: string,
     mode: string,
-    options: ZenOptions,
+    options: ModelRequestOptions,
 ): Promise<IResourceRequest> {
     const inputTools = await buildTools(context);
     const promptCollection = context.getNodeParameter('prompt', i, {}) as {

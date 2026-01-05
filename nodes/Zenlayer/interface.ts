@@ -58,7 +58,7 @@ type ToolsRequest =
 			parameters: object;
 	  };
 
-export interface ZenOptions {
+export interface ModelRequestOptions {
 	background?: boolean;
 	maxRetries?: number;
 	maxTokens?: number;
@@ -95,7 +95,7 @@ export interface ImageResourceRequest {
 export type IResourceRequest = TextResourceRequest | ImageResourceRequest;
 
 
-export interface IToolCall {
+export interface ChatResponseToolCalls {
 	type: string | 'function';
 	id: string;
 	function: {
@@ -139,7 +139,7 @@ export type ChatResponseChoice = {
 	message: {
 		role: string;
 		content?: string;
-		tool_calls?: IToolCall[];
+		tool_calls?: ChatResponseToolCalls[];
 	};
 	finish_reason: string;
 }

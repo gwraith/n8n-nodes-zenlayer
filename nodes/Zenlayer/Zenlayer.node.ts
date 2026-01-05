@@ -12,10 +12,10 @@ import { handleImageResource } from "./buildImageBody";
 import { handleChatResource } from './buildTextBody';
 import {
 	TextResourceRequest,
-	IToolCall,
+	ChatResponseToolCalls,
 	ResponseTextFunctionCall,
 	ResponseTextFunctionCallOutPut,
-	ZenOptions,
+	ModelRequestOptions,
 	IResourceRequest,
 	RespResponseOutput,
 	TextResponse,
@@ -380,7 +380,7 @@ export class Zenlayer implements INodeType {
             const requestMode = this.getNodeParameter('requestMode', i, 'chat') as string;
             const model = this.getNodeParameter('model', i) as string;
             const resource = this.getNodeParameter('resource', i) as string;
-            const options = this.getNodeParameter('options', i, {}) as ZenOptions;
+            const options = this.getNodeParameter('options', i, {}) as ModelRequestOptions;
             const maxRetries = options.maxRetries ?? 2;
             const timeout = options.timeout ?? 60000;
 
@@ -423,7 +423,7 @@ export class Zenlayer implements INodeType {
 
 async function executeTool(
     context: IExecuteFunctions,
-    toolCall: IToolCall,
+    toolCall: ChatResponseToolCalls,
 ): Promise<{ callId: string; output: string }> {
     const tools = await context.getInputConnectionData(NodeConnectionTypes.AiTool, 0);
 	if (!tools || !Array.isArray(tools)) {
@@ -471,7 +471,7 @@ async function handleToolLoop(
 				});
 			}
 
-            for (const call of calls as IToolCall[]) {
+            for (const call of calls as ChatResponseToolCalls[]) {
                 const result = await executeTool(context, call);
 				if (Array.isArray(request.messages)) {
 					request.messages.push({
