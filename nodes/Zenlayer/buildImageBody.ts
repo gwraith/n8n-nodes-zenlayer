@@ -1,5 +1,5 @@
 import { IExecuteFunctions, NodeOperationError } from 'n8n-workflow';
-import { ImageInputMessage, IResourceRequest } from './Zenlayer.constants';
+import { ImageInputMessage, IResourceRequest } from './interface';
 
 export async function handleImageResource(
     context: IExecuteFunctions,

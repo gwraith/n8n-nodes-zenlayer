@@ -6,7 +6,7 @@ import {
 
 // eslint-disable-next-line @n8n/community-nodes/no-restricted-imports
 import {zodToJsonSchema} from "zod-to-json-schema";
-import { IResourceRequest, ZenOptions } from './Zenlayer.constants';
+import { IResourceRequest, ZenOptions } from './interface';
 
 async function buildTools(
     context: IExecuteFunctions,

@@ -8,8 +8,8 @@ import {
 	NodeOperationError,
 } from 'n8n-workflow';
 
-import { handleImageResource } from "./Zenlayer.image";
-import { handleChatResource } from './Zenlayer.text';
+import { handleImageResource } from "./buildImageBody";
+import { handleChatResource } from './buildTextBody';
 import {
 	TextResourceRequest,
 	IToolCall,
@@ -21,7 +21,7 @@ import {
 	TextResponse,
 	ChatResponse,
 	RespResponse,
-} from './Zenlayer.constants';
+} from './interface';
 
 export class Zenlayer implements INodeType {
     description: INodeTypeDescription = {
