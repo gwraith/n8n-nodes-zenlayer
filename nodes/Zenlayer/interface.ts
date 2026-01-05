@@ -7,20 +7,20 @@ export type ImageInputMessage = {
     content: ImageInputContent[];
 };
 
-export interface ResponseTextInputMessage {
+export interface RespTextInputMessage {
 	type: string;
 	role: string;
 	content: string;
 }
 
-export interface ResponseTextFunctionCall {
+export interface RespTextInputFunctionCall {
 	type: 'function_call',
 	name: string,
 	arguments: string,
 	call_id: string,
 }
 
-export interface ResponseTextFunctionCallOutPut {
+export interface RespTextInputFunctionCallOutPut {
 	type: 'function_call_output',
 	call_id: string,
 	output: string,
@@ -74,7 +74,7 @@ export interface ModelRequestOptions {
 export interface TextResourceRequest {
 	model: string;
 	messages?: Array<ChatTextMessage | ChatMessageToolCall | ChatMessageToolCallOutput>;
-	input?: Array<ResponseTextInputMessage | ResponseTextFunctionCall | ResponseTextFunctionCallOutPut>;
+	input?: Array<RespTextInputMessage | RespTextInputFunctionCall | RespTextInputFunctionCallOutPut>;
 	max_tokens?: number;
 	temperature?: number;
 	top_p?: number;
