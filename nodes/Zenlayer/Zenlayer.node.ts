@@ -13,8 +13,8 @@ import { handleTextResource } from './buildTextBody';
 import {
 	TextRequestBody,
 	ChatResponseToolCalls,
-	RespTextInputFunctionCall,
-	RespTextInputFunctionCallOutPut,
+	RespInputFunctionCall,
+	RespInputFunctionCallOutPut,
 	ModelRequestOptions,
 	ModelRequestBody,
 	RespResponseOutput,
@@ -449,7 +449,7 @@ async function handleToolLoop(
 				}
             }
         } else {
-            const toolEvents = Array<RespTextInputFunctionCall | RespTextInputFunctionCallOutPut>();
+            const toolEvents = Array<RespInputFunctionCall | RespInputFunctionCallOutPut>();
 
             for (const call of calls as {
 				id: string;

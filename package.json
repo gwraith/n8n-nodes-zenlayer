@@ -1,14 +1,17 @@
 {
 	"name": "n8n-nodes-zenlayer",
 	"version": "0.1.4",
-	"description": "n8n community nodes package for Zenlayer.",
+	"description": "n8n community node for Zenlayer API integration.",
 	"license": "MIT",
 	"homepage": "",
 	"keywords": [
-		"n8n-community-node-package"
+		"n8n-community-node-package",
+		"zenlayer",
+		"n8n",
+		"ai"
 	],
 	"author": {
-		"name": "allen",
+		"name": "Allen Gao",
 		"email": "allen.gao@zenlayer.com"
 	},
 	"repository": {
