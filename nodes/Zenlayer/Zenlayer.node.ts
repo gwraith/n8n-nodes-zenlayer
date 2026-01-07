@@ -37,7 +37,11 @@ export class Zenlayer implements INodeType {
         },
         usableAsTool: true,
         codex: {
-            categories: ['AI'],
+			alias: ['LangChain', 'image', 'vision', 'AI'],
+			categories: ['AI'],
+			subcategories: {
+				AI: ['Agents', 'Root Nodes'],
+			},
         },
 
         inputs: ['main', 'ai_tool'],
