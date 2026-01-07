@@ -42,20 +42,36 @@ export interface ChatMessageToolCallOutput {
 	content: string;
 }
 
+export type Property = {
+	type: string;
+	description?: string;
+}
+
+export type ToolParameters = {
+	type: string;
+	properties: {
+		[key: string]: Property;
+	};
+	required?: string[];
+	additionalProperties?: boolean;
+}
+
 export interface ChatRequestTools {
-    type: string | 'function';
-    function: {
-        name: string;
-        description: string;
-        parameters: object;
-    };
+	type: string | 'function';
+	function: {
+		name: string;
+		description: string;
+		parameters: ToolParameters;
+	};
+	strict?: boolean;
 }
 
 export interface RespRequestTools {
-    type: string | 'function';
-    name: string;
-    description: string;
-    parameters: object;
+	type: string | 'function';
+	name: string;
+	description: string;
+	parameters: ToolParameters;
+	strict?: boolean;
 }
 
 export interface ModelRequestOptions {

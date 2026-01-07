@@ -4,9 +4,21 @@ import {
 	NodeOperationError,
 } from 'n8n-workflow';
 
-// eslint-disable-next-line @n8n/community-nodes/no-restricted-imports
-import {zodToJsonSchema} from "zod-to-json-schema";
-import { IResourceRequest, ModelRequestOptions } from './interface';
+import {
+	IResourceRequest,
+	ModelRequestOptions,
+	RespRequestTools,
+	ToolParameters,
+} from './interface';
+
+export const primitiveMappings = {
+	ZodString: 'string',
+	ZodNumber: 'number',
+	ZodBigInt: 'integer',
+	ZodBoolean: 'boolean',
+	ZodNull: 'null',
+} as const;
+type PrimitiveTypeName = keyof typeof primitiveMappings;
 
 async function buildTools(
     context: IExecuteFunctions,
@@ -16,21 +28,60 @@ async function buildTools(
 		throw new NodeOperationError(context.getNode(), 'No tool inputs found');
 	}
 
-	/*
+    const result: RespRequestTools[] = [];
 	for (const tool of tools) {
-		context.logger.info(`Processing tool: ${tool?.name || 'Unnamed Tool'} typeof ${typeof tool}`);
-		for (const key of Object.keys(tool)) {
-			context.logger.info(`Tool property - ${key}: ${JSON.stringify((tool as any)[key])}`);
-		}
-	}
-	*/
+		//context.logger.info(`Processing tool: ${tool?.name || 'Unnamed Tool'} typeof ${typeof tool}`);
+		//for (const key of Object.keys(tool)) {
+		//	context.logger.info(`Tool property - ${key}: ${JSON.stringify((tool as any)[key])}`);
+		//}
 
-    return (tools ?? []).map((t) => ({
-        type: t.type ?? 'function',
-        name: t.name,
-        description: t.description,
-        parameters: zodToJsonSchema(t.schema) || {},
-    }));
+        const parameters = Object.entries<Record<string, unknown>>(tool.schema.shape);
+        context.logger.info(`parameters length: ${parameters.length}`);
+        for (const [name, schema] of parameters) {
+            context.logger.info(`Parameter entry - ${name}: ${JSON.stringify(schema)}`);
+        }
+
+        const toolParameters: ToolParameters = {
+            type: 'object',
+            properties: {},
+        };
+        const requiredParams: string[] = [];
+
+        for (const [paramName, paramSchema] of parameters) {
+            const typeName = (paramSchema as { _def: { typeName: string } })._def.typeName as PrimitiveTypeName;
+            toolParameters.properties[paramName] = {
+				type: primitiveMappings[typeName] || 'string',
+			};
+            const desc = paramSchema.description;
+            if (desc !== undefined && desc !== null) {
+				toolParameters.properties[paramName].description = desc as string;
+			}
+            if (typeof paramSchema.isOptional === 'function' && !paramSchema.isOptional()) {
+				requiredParams.push(paramName);
+			}
+        }
+
+        if (requiredParams.length > 0) {
+            toolParameters.required = requiredParams;
+        }
+        toolParameters.additionalProperties = false;
+
+        result.push({
+			type: tool.type ?? 'function',
+			name: tool.name,
+			description: tool.description,
+			parameters: toolParameters || {},
+		});
+	}
+
+    return result;
+
+    //return (tools ?? []).map((t) => ({
+    //    type: t.type ?? 'function',
+    //    name: t.name,
+    //    description: t.description,
+    //    parameters: zodToJsonSchema(t.schema) || {},
+    //}));
 }
 
 export async function handleChatResource(
@@ -66,6 +117,7 @@ export async function handleChatResource(
                     description: t.description,
                     parameters: t.parameters,
                 },
+                strict: true,
             })),
             tool_choice: options.toolChoice ?? 'auto',
         };
@@ -92,6 +144,7 @@ export async function handleChatResource(
                 name: t.name,
                 description: t.description,
                 parameters: t.parameters,
+                strict: true,
             })),
             tool_choice: options.toolChoice ?? 'auto',
         };
