@@ -9,14 +9,14 @@ import {
 } from 'n8n-workflow';
 
 import { handleImageResource } from "./buildImageBody";
-import { handleChatResource } from './buildTextBody';
+import { handleTextResource } from './buildTextBody';
 import {
-	TextResourceRequest,
+	TextRequestBody,
 	ChatResponseToolCalls,
 	RespTextInputFunctionCall,
 	RespTextInputFunctionCallOutPut,
 	ModelRequestOptions,
-	IResourceRequest,
+	ModelRequestBody,
 	RespResponseOutput,
 	TextResponse,
 	ChatResponse,
@@ -386,7 +386,7 @@ export class Zenlayer implements INodeType {
 
             const body = resource === 'image'
                 ? await handleImageResource(this, i, model, requestMode)
-                : await handleChatResource(this, i, model, requestMode, options);
+                : await handleTextResource(this, i, model, requestMode, options);
 
             let responseData = await zenlayerRequest(this, {
                 method: 'POST',
@@ -400,7 +400,7 @@ export class Zenlayer implements INodeType {
                 responseData = await handleToolLoop(
                     this,
                     requestMode as 'chat' | 'responses',
-                    body as TextResourceRequest,
+                    body as TextRequestBody,
                     responseData,
                     async (reqBody) => {
                         return await zenlayerRequest(this, {
@@ -451,9 +451,9 @@ async function executeTool(
 async function handleToolLoop(
     context: IExecuteFunctions,
     mode: 'chat' | 'responses',
-    request: TextResourceRequest,
+    request: TextRequestBody,
     response: TextResponse,
-    callApi: (body: TextResourceRequest) => Promise<TextResponse>,
+    callApi: (body: TextRequestBody) => Promise<TextResponse>,
 ) {
     while (true) {
         const calls =
@@ -532,7 +532,7 @@ async function zenlayerRequest(
     params: {
         method: 'POST' | 'GET';
         url: string;
-        body?: IResourceRequest;
+        body?: ModelRequestBody;
         timeout: number;
         maxRetries: number;
     },

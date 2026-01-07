@@ -1,12 +1,12 @@
 import { IExecuteFunctions, NodeOperationError } from 'n8n-workflow';
-import { ImageInputMessage, IResourceRequest } from './interface';
+import { ImageInputMessage, ModelRequestBody } from './interface';
 
 export async function handleImageResource(
     context: IExecuteFunctions,
     i: number,
     model: string,
 	mode: string,
-): Promise<IResourceRequest> {
+): Promise<ModelRequestBody> {
     const operation = context.getNodeParameter('zenOperation', i, 'analyze') as string;
     if (operation === 'analyze') {
         const imagePrompt = context.getNodeParameter('imagePrompt', i) as string;

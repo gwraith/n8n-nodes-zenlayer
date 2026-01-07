@@ -26,7 +26,7 @@ export interface RespTextInputFunctionCallOutPut {
 	output: string,
 }
 
-export interface ChatTextMessage {
+export interface ChatMessageNormal {
 	role: string;
 	content: string;
 }
@@ -87,9 +87,9 @@ export interface ModelRequestOptions {
 	toolChoice?: string;
 }
 
-export interface TextResourceRequest {
+export interface TextRequestBody {
 	model: string;
-	messages?: Array<ChatTextMessage | ChatMessageToolCall | ChatMessageToolCallOutput>;
+	messages?: Array<ChatMessageNormal | ChatMessageToolCall | ChatMessageToolCallOutput>;
 	input?: Array<RespTextInputMessage | RespTextInputFunctionCall | RespTextInputFunctionCallOutPut>;
 	max_tokens?: number;
 	temperature?: number;
@@ -102,13 +102,13 @@ export interface TextResourceRequest {
 	background?: boolean;
 }
 
-export interface ImageResourceRequest {
+export interface ImageRequestBody {
 	model: string;
 	input?: ImageInputMessage[];
 	messages?: ImageInputMessage[];
 }
 
-export type IResourceRequest = TextResourceRequest | ImageResourceRequest;
+export type ModelRequestBody = TextRequestBody | ImageRequestBody;
 
 
 export interface ChatResponseToolCalls {

@@ -5,7 +5,7 @@ import {
 } from 'n8n-workflow';
 
 import {
-	IResourceRequest,
+	ModelRequestBody,
 	ModelRequestOptions,
 	RespRequestTools,
 	ToolParameters,
@@ -84,13 +84,13 @@ async function buildTools(
     //}));
 }
 
-export async function handleChatResource(
+export async function handleTextResource(
     context: IExecuteFunctions,
     i: number,
     model: string,
     mode: string,
     options: ModelRequestOptions,
-): Promise<IResourceRequest> {
+): Promise<ModelRequestBody> {
     const inputTools = await buildTools(context);
     const promptCollection = context.getNodeParameter('prompt', i, {}) as {
         messages?: Array<{ role: string; content: string }>;
