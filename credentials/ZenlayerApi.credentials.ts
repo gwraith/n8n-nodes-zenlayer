@@ -12,7 +12,7 @@ import type {
 export class ZenlayerApi implements ICredentialType {
 	name = 'zenlayerApi';
 	displayName = 'Zenlayer API';
-	documentationUrl = 'https://www.zenlayer.com/';
+	documentationUrl = 'https://www.zenlayer.com/ai-gateway/';
 	icon: Icon = 'file:../icons/zenlayer.svg';
 
 	properties: INodeProperties[] = [
@@ -45,7 +45,7 @@ export class ZenlayerApi implements ICredentialType {
 	test: ICredentialTestRequest = {
 		request: {
 			baseURL: '={{ $credentials.url }}',
-			url: '/key',
+			url: '/models',
 		},
 	};
 }
