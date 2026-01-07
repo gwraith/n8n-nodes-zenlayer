@@ -12,6 +12,9 @@ Zenlayer AI Gateway提供全球领先的 AI 大模型推理服务，依托 Zenla
 
 4.请注意：API Key 只会在生成时展示一次。请务必复制并妥善保存，以确保未来能够持续使用
 
+5.在 n8n 中配置 Zenlayer AI Gateway 节点，填写 API Key 以完成集成。
+![img3.png](icons/img3.png)
+
 ## 主要功能
 ### 全球加速的模型访问能力
 基于 Zenlayer 的全球私有网络，在全球范围内提供低延迟的模型推理服务，无论用户身在何处都能获得一致稳定的体验。

@@ -30,7 +30,7 @@ export class Zenlayer implements INodeType {
         icon: 'file:../../icons/zenlayer.svg',
         group: ['transform'],
         version: [1],
-        description: 'Consume Zenlayer AI Gateway APIs',
+        description: 'For advanced usage with an AI Gateway from Zenlayer',
         subtitle: '={{$parameter["resource"] === "text" ? "Message a Model" : "Analyze Image"}}',
         defaults: {
             name: 'Zenlayer',
@@ -38,13 +38,6 @@ export class Zenlayer implements INodeType {
         usableAsTool: true,
         codex: {
             categories: ['AI'],
-            resources: {
-                primaryDocumentation: [
-                    {
-                        url: 'https://docs.n8n.io',
-                    },
-                ],
-            },
         },
 
         inputs: ['main', 'ai_tool'],
