@@ -1,6 +1,18 @@
 export type ImageInputContent =
-    | { type: string; text: string }
-    | { type: string; image_url: string | { url: string } };
+	| {
+			type: string;
+			text: string;
+	  }
+	| {
+			type: string;
+			detail?: 'low' | 'high' | 'auto';
+			image_url:
+				| string
+				| {
+						url: string;
+						detail?: 'low' | 'high' | 'auto';
+				  };
+	  };
 
 export type ImageInputMessage = {
     role: string;
@@ -74,24 +86,12 @@ export interface RespRequestTools {
 	strict?: boolean;
 }
 
-export interface ModelRequestOptions {
-	background?: boolean;
-	maxRetries?: number;
-	maxTokens?: number;
-	responseFormat?: string;
-	temperature?: number;
-	timeout?: number;
-	topP?: number;
-	parallelToolCalls?: boolean;
-	store?: boolean;
-	toolChoice?: string;
-}
-
 export interface TextRequestBody {
 	model: string;
 	messages?: Array<ChatMessageMsg | ChatMessageToolCall | ChatMessageToolCallOutput>;
 	input?: Array<RespInputMsg | RespInputFunctionCall | RespInputFunctionCallOutPut>;
-	max_tokens?: number;
+	max_completion_tokens?: number;
+	max_output_tokens?: number;
 	temperature?: number;
 	top_p?: number;
 	response_format?: { type: string };
@@ -106,6 +106,8 @@ export interface ImageRequestBody {
 	model: string;
 	input?: ImageInputMessage[];
 	messages?: ImageInputMessage[];
+	max_completion_tokens?: number;
+	max_output_tokens?: number;
 }
 
 export type ModelRequestBody = TextRequestBody | ImageRequestBody;
