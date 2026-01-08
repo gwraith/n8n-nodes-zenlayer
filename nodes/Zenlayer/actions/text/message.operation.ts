@@ -416,7 +416,7 @@ export async function handleTextResource(
 
 export async function execute(this: IExecuteFunctions, i: number): Promise<INodeExecutionData[]> {
 	const requestMode = this.getNodeParameter('requestMode', i, 'chat') as string;
-	const model = this.getNodeParameter('model', i) as string;
+	const model = this.getNodeParameter('model', i, '',{ extractValue: true }) as string;
 	const options = this.getNodeParameter('options', i, {}) as MessageOptions;
 
 	const body = await handleTextResource(this, i, model, requestMode, options);
