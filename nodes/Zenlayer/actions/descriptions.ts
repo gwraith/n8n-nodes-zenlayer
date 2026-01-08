@@ -1,6 +1,6 @@
 import type { INodeProperties } from 'n8n-workflow';
 
-export const modelList: INodeProperties = {
+export const modelList = (searchListMethod: string = 'modelSearch'): INodeProperties => ({
 	displayName: 'Model',
 	name: 'model',
 	type: 'resourceLocator',
@@ -12,7 +12,7 @@ export const modelList: INodeProperties = {
 			name: 'list',
 			type: 'list',
 			typeOptions: {
-				searchListMethod: 'modelSearch',
+				searchListMethod,
 				searchable: true,
 			},
 		},
@@ -23,4 +23,4 @@ export const modelList: INodeProperties = {
 			placeholder: 'e.g. gpt-4o, deepseek-r1',
 		},
 	],
-};
+});

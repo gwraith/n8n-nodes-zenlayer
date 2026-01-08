@@ -19,7 +19,7 @@ export const versionDescription: INodeTypeDescription = {
 		alias: ['LangChain', 'image', 'vision', 'AI'],
 		categories: ['AI'],
 		subcategories: {
-			AI: ['Agents', 'Root Nodes'],
+			AI: ['Agents', 'Miscellaneous', 'Root Nodes'],
 		},
 	},
 
