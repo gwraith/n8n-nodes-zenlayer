@@ -3,36 +3,24 @@ import type { INodeProperties } from 'n8n-workflow';
 export const modelList: INodeProperties = {
 	displayName: 'Model',
 	name: 'model',
-	type: 'options',
-	default: '',
-	description: 'Select a model provided by your Zenlayer AI Gateway',
-	typeOptions: {
-		loadOptions: {
-			routing: {
-				request: {
-					method: 'GET',
-					url: '/models',
-				},
-				output: {
-					postReceive: [
-						{
-							type: 'rootProperty',
-							properties: {
-								property: 'data',
-							},
-						},
-						{
-							type: 'setKeyValue',
-							properties: {
-								//name: '={{$responseItem.owned_by + "/" + $responseItem.id}}',
-								name: '={{$responseItem.id}}',
-								value: '={{$responseItem.id}}',
-							},
-						},
-						{ type: 'sort', properties: { key: 'name' } },
-					],
-				},
+	type: 'resourceLocator',
+	default: { mode: 'list', value: '' },
+	required: true,
+	modes: [
+		{
+			displayName: 'From List',
+			name: 'list',
+			type: 'list',
+			typeOptions: {
+				searchListMethod: 'modelSearch',
+				searchable: true,
 			},
 		},
-	},
+		{
+			displayName: 'ID',
+			name: 'id',
+			type: 'string',
+			placeholder: 'e.g. gpt-4o, deepseek-r1',
+		},
+	],
 };
