@@ -18,7 +18,7 @@ import {
 	TextRequestBody,
 	TextResponse,
 	ToolParameters,
-} from '../../helpers';
+} from '../../helpers/interfaces';
 import { modelList } from '../descriptions';
 import { apiRequest } from '../../transport';
 

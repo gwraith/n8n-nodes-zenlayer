@@ -3,15 +3,12 @@ import {
 	IExecuteFunctions,
 	INodeExecutionData,
 	INodeProperties,
-	NodeOperationError,
 	updateDisplayOptions,
 } from 'n8n-workflow';
-import {
-	ImageInputMessage,
-	ModelRequestBody,
-} from '../../helpers';
+import { ImageInputMessage, ModelRequestBody } from '../../helpers/interfaces';
 import { modelList } from '../descriptions';
 import { apiRequest	} from "../../transport";
+import {getBinaryDataFile} from "../../helpers/binary-data";
 
 const properties: INodeProperties[] = [
 	modelList,
@@ -36,11 +33,48 @@ const properties: INodeProperties[] = [
 		default: "What's in this image?",
 	},
 	{
+		displayName: 'Input Type',
+		name: 'inputType',
+		type: 'options',
+		default: 'binary',
+		options: [
+			{
+				name: 'Binary File(s)',
+				value: 'binary',
+			},
+			{
+				name: 'Image URL(s)',
+				value: 'url',
+			},
+		],
+	},
+	{
+		displayName: 'Input Data Field Name(s)',
+		name: 'binaryPropertyName',
+		type: 'string',
+		default: 'data',
+		placeholder: 'e.g. data',
+		hint: 'The name of the input field containing the binary file data to be processed',
+		description:
+			'Name of the binary field(s) which contains the image(s), separate multiple field names with commas',
+		displayOptions: {
+			show: {
+				inputType: ['binary'],
+			},
+		},
+	},
+	{
 		displayName: 'URL(s)',
 		name: 'imageUrls',
 		type: 'string',
+		placeholder: 'e.g. https://example.com/image.png',
+		description: 'URL(s) of the image(s) to analyze, multiple URLs can be added separated by comma',
 		default: '',
-		placeholder: 'e.g. https://example.com/image.jpeg',
+		displayOptions: {
+			show: {
+				inputType: ['url'],
+			},
+		},
 	},
 	{
 		displayName: 'Options',
@@ -100,9 +134,10 @@ export const description = updateDisplayOptions(displayOptions, properties);
 export async function execute(this: IExecuteFunctions, i: number): Promise<INodeExecutionData[]> {
 	const requestMode = this.getNodeParameter('requestMode', i, 'chat') as string;
 	const model = this.getNodeParameter('model', i) as string;
+	const inputType = this.getNodeParameter('inputType', i, 'binary') as string;
 	const options = this.getNodeParameter('options', i, {}) as ImageOptions;
 
-	const body = await handleImageResource(this, i, model, requestMode, options);
+	const body = await handleImageResource(this, i, inputType, model, requestMode, options);
 	const endpoint = requestMode === 'chat' ? '/chat/completions' : '/responses';
 
 	const responseData = await apiRequest.call(this, 'POST', endpoint, {
@@ -115,35 +150,34 @@ export async function execute(this: IExecuteFunctions, i: number): Promise<INode
 export async function handleImageResource(
 	context: IExecuteFunctions,
 	i: number,
+	inputType: string,
 	model: string,
 	mode: string,
 	options: ImageOptions,
 ): Promise<ModelRequestBody> {
-	const operation = context.getNodeParameter('zenOperation', i, 'analyze') as string;
-	if (operation === 'analyze') {
-		const imagePrompt = context.getNodeParameter('imagePrompt', i) as string;
+	const text = context.getNodeParameter('imagePrompt', i) as string;
+	const input: ImageInputMessage[] = [
+		{
+			role: 'user',
+			content: [{ type: mode === 'chat' ? 'text' : 'input_text', text}],
+		},
+	];
+
+	if (inputType === 'url') {
 		const imageUrl = context.getNodeParameter('imageUrls', i) as string;
-
-		const input: ImageInputMessage[] = [
-			{
-				role: 'user',
-				content: [{ type: mode === 'chat' ? 'text' : 'input_text', text: imagePrompt }],
-			},
-		];
-
 		const urls = imageUrl
 			.split(',')
 			.map((u) => u.trim())
 			.filter(Boolean);
 		for (const url of urls) {
 			if (mode === 'chat') {
-				const content  = {
+				const content = {
 					type: 'image_url' as const,
 					image_url: {
 						url: url,
-						detail: options.detail
+						detail: options.detail,
 					},
-				}
+				};
 				input[0].content.push(content);
 			} else {
 				const content = {
@@ -154,20 +188,44 @@ export async function handleImageResource(
 				input[0].content.push(content);
 			}
 		}
+	} else if (inputType === 'binary') {
+		const binaryPropertyName = context.getNodeParameter('binaryPropertyName', i).split(',').map((propertyName) => propertyName.trim());
 
-		if (mode === 'chat') {
-			return {
-				model,
-				messages: input,
-				max_completion_tokens: options.maxTokens === -1 ? undefined : options.maxTokens,
-			};
-		} else {
-			return {
-				model,
-				input: input,
-				max_output_tokens: options.maxTokens === -1 ? undefined : options.maxTokens,
-			};
+		for (const propertyName of binaryPropertyName) {
+			const { fileContent, contentType } = await getBinaryDataFile(context, i, propertyName);
+			const imageBuffer = await context.helpers.binaryToBuffer(fileContent);
+			const base64Image = imageBuffer.toString('base64');
+
+			if (mode === 'chat') {
+				const content = {
+					type: 'image_url' as const,
+					image_url: {
+						url: `data:${contentType};base64,${base64Image}`,
+						detail: options.detail,
+					},
+				};
+				input[0].content.push(content);
+			} else {
+				const content = {
+					type: 'input_image' as const,
+					detail: options.detail,
+					image_url: `data:${contentType};base64,${base64Image}`,
+				};
+				input[0].content.push(content);
+			}
 		}
 	}
-	throw new NodeOperationError(context.getNode(), 'Unsupported image operation.');
+	if (mode === 'chat') {
+		return {
+			model,
+			messages: input,
+			max_completion_tokens: options.maxTokens === -1 ? undefined : options.maxTokens,
+		};
+	} else {
+		return {
+			model,
+			input: input,
+			max_output_tokens: options.maxTokens === -1 ? undefined : options.maxTokens,
+		};
+	}
 }
