@@ -11,7 +11,7 @@ import { apiRequest	} from "../../transport";
 import {getBinaryDataFile} from "../../helpers/binary-data";
 
 const properties: INodeProperties[] = [
-	modelList,
+	modelList(),
 	{
 		displayName: 'Request Mode',
 		name: 'requestMode',

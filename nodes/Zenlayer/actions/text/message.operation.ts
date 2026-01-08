@@ -23,7 +23,7 @@ import { modelList } from '../descriptions';
 import { apiRequest } from '../../transport';
 
 const properties: INodeProperties[] = [
-	modelList,
+	modelList(),
 	{
 		displayName: 'Request Mode',
 		name: 'requestMode',
