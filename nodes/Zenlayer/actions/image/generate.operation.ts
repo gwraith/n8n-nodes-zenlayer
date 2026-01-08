@@ -126,7 +126,7 @@ const properties: INodeProperties[] = [
 				],
 				displayOptions: {
 					show: {
-						'/model': ['gpt-image-1'],
+						'/model': ['gpt-image-1', 'gpt-image-1.5'],
 					},
 				},
 				default: 'medium',
@@ -201,7 +201,7 @@ const properties: INodeProperties[] = [
 				],
 				displayOptions: {
 					show: {
-						'/model': ['gpt-image-1'],
+						'/model': ['gpt-image-1', 'gpt-image-1.5'],
 					},
 				},
 				default: '1024x1024',
@@ -213,8 +213,8 @@ const properties: INodeProperties[] = [
 				default: false,
 				description: 'Whether to return image URL(s) instead of binary file(s)',
 				displayOptions: {
-					hide: {
-						'/model': ['gpt-image-1'],
+					show: {
+						'/model': ['dall-e-2', 'dall-e-3'],
 					},
 				},
 			},
@@ -279,7 +279,7 @@ export async function execute(this: IExecuteFunctions, i: number): Promise<INode
 	const body: IDataObject = {
 		prompt,
 		model,
-		response_format: model !== 'gpt-image-1' ? response_format : undefined, // gpt-image-1 does not support response_format
+		response_format: model === 'dall-e-2' || model === 'dall-e-3' ? response_format : undefined, // GPT Image models always return base64-encoded images.
 		...options,
 	};
 
