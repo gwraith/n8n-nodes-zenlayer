@@ -1,6 +1,7 @@
 import type { INodeProperties } from 'n8n-workflow';
 import * as analyze from './analyze.operation';
-export { analyze };
+import * as generate from './generate.operation';
+export { analyze, generate };
 
 export const description: INodeProperties[] = [
 	{
@@ -15,6 +16,12 @@ export const description: INodeProperties[] = [
 				action: 'Analyze image',
 				description: 'Analyze images and get descriptions or insights',
 			},
+			{
+				name: 'Generate an Image',
+				value: 'generate',
+				action: 'Generate an image',
+				description: 'Creates an image from a text prompt',
+			},
 		],
 		default: 'analyze',
 		displayOptions: {
@@ -23,5 +30,6 @@ export const description: INodeProperties[] = [
 			},
 		},
 	},
+	...generate.description,
 	...analyze.description,
 ];
