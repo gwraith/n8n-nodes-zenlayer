@@ -111,6 +111,21 @@ export interface ChatCompletionCustomTool {
 	};
 }
 
+export interface ResponseFormatJSONSchema {
+	type: 'json_schema';
+	json_schema: {
+		name: string;
+		description?: string;
+		schema: { [key: string]: unknown };
+		strict?: boolean | null;
+	}
+}
+
+export type ResponseFormatConfig =
+	| { type: 'text' }
+	| { type: 'json_object' }
+	| ResponseFormatJSONSchema;
+
 export interface ChatCompletionCreateParamsBase {
 	model: string;
 	messages: Array<
@@ -122,11 +137,12 @@ export interface ChatCompletionCreateParamsBase {
 	max_completion_tokens?: number | null;
 	temperature?: number | null;
 	top_p?: number | null;
-	response_format?: { type: string };
+	response_format?: ResponseFormatConfig;
 	tools?: Array<ChatCompletionFunctionTool | ChatCompletionCustomTool>;
 	tool_choice?: string;
 	parallel_tool_calls?: boolean;
 	store?: boolean | null;
+	verbosity?: 'low' | 'medium' | 'high' | null;
 }
 
 export type ChatCompletionChoice = {
@@ -222,8 +238,19 @@ export interface FunctionTool {
 	strict?: boolean;
 }
 
+export interface ResponseFormatTextJSONSchemaConfig {
+	name: string;
+	schema: { [key: string]: unknown };
+	type: 'json_schema';
+	description?: string;
+	strict?: boolean | null;
+}
+
 export interface ResponseTextConfig {
-	format?: { type: 'text' } | { type: 'json_object' };
+	format?:
+		| { type: 'text' }
+		| { type: 'json_object' }
+		| ResponseFormatTextJSONSchemaConfig;
 	verbosity?: 'low' | 'medium' | 'high' | null;
 }
 

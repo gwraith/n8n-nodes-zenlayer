@@ -3,24 +3,36 @@ import {
 	IExecuteFunctions,
 	INodeExecutionData,
 	INodeProperties,
+	jsonParse,
 	NodeOperationError,
 	updateDisplayOptions,
 } from 'n8n-workflow';
 import {
 	ChatCompletion,
-	ChatCompletionMessageFunctionToolCall,
 	ChatCompletionCreateParamsBase,
+	ChatCompletionMessageFunctionToolCall,
 	ModelCreateParamsBase,
-	ResponseTextConfig,
-	Response,
-	ResponseOutputItem,
-	ResponseCreateParamsBase,
 	ModelResponse,
+	Response,
+	ResponseCreateParamsBase,
 	ResponseFunctionToolCall,
+	ResponseOutputItem,
+	ResponseTextConfig,
 } from '../../helpers/interfaces';
-import { modelList } from '../descriptions';
-import { apiRequest } from '../../transport';
-import { getConnectedTools, executeTool } from '../../helpers/utils';
+import {modelList} from '../descriptions';
+import {apiRequest} from '../../transport';
+import {executeTool, getConnectedTools} from '../../helpers/utils';
+
+const jsonSchemaExample = `{
+  "type": "object",
+  "properties": {
+    "message": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": ["message"]
+}`;
 
 const properties: INodeProperties[] = [
 	modelList(),
@@ -189,12 +201,63 @@ const properties: INodeProperties[] = [
 						name: 'textOptions',
 						values: [
 							{
+								displayName: 'Description',
+								name: 'description',
+								type: 'string',
+								default: '',
+								description: 'The description of the response format',
+								displayOptions: {
+									show: {
+										type: ['json_schema'],
+									},
+								},
+							},
+							{
+								displayName: 'Name',
+								name: 'name',
+								type: 'string',
+								default: 'my_schema',
+								description:
+									'The name of the response format. Must be a-z, A-Z, 0-9, or contain underscores and dashes, with a maximum length of 64.',
+								displayOptions: {
+									show: {
+										type: ['json_schema'],
+									},
+								},
+							},
+							{
+								displayName: 'Schema',
+								name: 'schema',
+								type: 'json',
+								default: jsonSchemaExample,
+								description: 'The schema of the response format',
+								displayOptions: {
+									show: {
+										type: ['json_schema'],
+									},
+								},
+							},
+							{
+								displayName: 'Strict',
+								name: 'strict',
+								type: 'boolean',
+								default: false,
+								description:
+									'Whether to require that the AI will always generate responses that match the provided JSON Schema',
+								displayOptions: {
+									show: {
+										type: ['json_schema'],
+									},
+								},
+							},
+							{
 								displayName: 'Type',
 								name: 'type',
 								type: 'options',
 								default: 'text',
 								options: [
 									{ name: 'Text', value: 'text' },
+									{ name: 'JSON Schema', value: 'json_schema' },
 									{ name: 'JSON Object', value: 'json_object' },
 								],
 							},
@@ -250,6 +313,22 @@ const properties: INodeProperties[] = [
 				default: 1,
 				typeOptions: { maxValue: 1, minValue: 0, numberPrecision: 1 },
 			},
+			{
+				displayName: 'Verbosity',
+				name: 'verbosity',
+				type: 'options',
+				default: 'medium',
+				options: [
+					{ name: 'Low', value: 'low' },
+					{ name: 'Medium', value: 'medium' },
+					{ name: 'High', value: 'high' },
+				],
+				displayOptions: {
+					show: {
+						'/requestMode': ['chat'],
+					},
+				},
+			},
 		],
 	},
 ];
@@ -272,10 +351,15 @@ interface MessageOptions {
 		textOptions: {
 			type: string;
 			verbosity?: string;
+			name?: string;
+			schema?: object;
+			description?: string;
+			strict?: boolean;
 		};
 	};
 	store?: boolean;
 	toolChoice?: string;
+	verbosity?: string;
 }
 
 const displayOptions = {
@@ -365,7 +449,7 @@ export async function createRequestBody(
 			model,
 			messages,
 			parallel_tool_calls: options.parallelToolCalls as boolean,
-			store: options.store as boolean,    // Chat Completions API default store to false
+			store: options.store as boolean, // Chat Completions API default store to false
 			max_completion_tokens: options.maxTokens === -1 ? undefined : (options.maxTokens as number),
 			temperature: options.temperature as number,
 			top_p: options.topP as number,
@@ -379,6 +463,7 @@ export async function createRequestBody(
 				strict: true,
 			})),
 			tool_choice: options.toolChoice as string,
+			verbosity: options.verbosity === 'medium' ? undefined : options.verbosity as 'low' | 'medium' | 'high',
 		};
 
 		if (options.responseFormat?.textOptions.type === 'json_object') {
@@ -389,6 +474,21 @@ export async function createRequestBody(
 					content: 'You are a helpful assistant designed to output JSON.',
 				},
 			]);
+		} else if (options.responseFormat?.textOptions.type === 'json_schema') {
+			body.response_format = {
+				type: 'json_schema',
+				json_schema: {
+					name: options.responseFormat?.textOptions.name as string,
+					schema: jsonParse(
+						options.responseFormat?.textOptions.schema as unknown as string,
+						{
+							errorMessage: 'Failed to parse schema',
+						},
+					),
+					description: options.responseFormat?.textOptions.description?.length === 0 ? undefined : options.responseFormat?.textOptions.description,
+					strict: !(options.responseFormat?.textOptions.strict as boolean) ? undefined : true,
+				},
+			};
 		}
 
 		return body;
@@ -440,6 +540,25 @@ export async function createRequestBody(
 				},
 			]);
 			body.text = textConfig;
+		} else if (options.responseFormat?.textOptions.type === 'json_schema') {
+			body.text = {
+				format: {
+					type: 'json_schema',
+					name: options.responseFormat?.textOptions.name as string,
+					schema: jsonParse(
+						options.responseFormat?.textOptions.schema as unknown as string,
+						{
+							errorMessage: 'Failed to parse schema',
+						},
+					),
+					description: options.responseFormat?.textOptions.description?.length === 0 ? undefined : options.responseFormat?.textOptions.description,
+					strict: !(options.responseFormat?.textOptions.strict as boolean) ? undefined : true,
+				},
+				verbosity: options.responseFormat?.textOptions.verbosity as
+					| 'low'
+					| 'medium'
+					| 'high',
+			};
 		}
 
 		return body;
