@@ -9,11 +9,12 @@ const primitiveMappings = {
 	ZodNumber: 'number',
 	ZodBigInt: 'integer',
 	ZodBoolean: 'boolean',
+	ZodArray: 'array',
 	ZodNull: 'null',
 } as const;
 type PrimitiveTypeName = keyof typeof primitiveMappings;
 
-export async function formatToOpenAIResponsesTool(name: string, description: string, shape: never) : Promise<FunctionTool> {
+export async function formatToParameters(_context: IExecuteFunctions, shape: never): Promise<[ToolParameters, boolean]> {
 	const toolParameters: ToolParameters = {
 		type: 'object',
 		properties: {},
@@ -22,29 +23,38 @@ export async function formatToOpenAIResponsesTool(name: string, description: str
 	const requiredParams: string[] = [];
 
 	for (const [paramName, paramSchema] of Object.entries<Record<string, unknown>>(shape)) {
-		const typeName = (paramSchema as { _def: { typeName: string } })._def.typeName as PrimitiveTypeName;
-		toolParameters.properties[paramName] = {
-			type: primitiveMappings[typeName] || 'string',
-		};
-		const desc = paramSchema.description;
-		if (desc !== undefined && desc !== null) {
-			toolParameters.properties[paramName].description = desc as string;
+		toolParameters.properties[paramName] = {};
+
+		const typeName = (paramSchema as { _def: { typeName: string } })._def.typeName as string;
+		if (typeName === 'ZodAny') continue;
+
+		toolParameters.properties[paramName].type = primitiveMappings[typeName as PrimitiveTypeName];
+
+		//_context.logger.info(`Processing parameter: ${paramName} of type ${typeName}`);
+		//_context.logger.info(`parameter: ${paramName}: ${JSON.stringify(paramSchema)}`);
+
+		if (typeName === 'ZodArray') {
+			const elementSchema = (paramSchema as { _def: { type: never } })._def.type;
+			const itemsType = (elementSchema as { _def: { typeName: string } })._def.typeName;
+
+			//_context.logger.info(`Array element type: ${itemsType}`);
+
+			if (itemsType !== 'ZodAny') {
+				toolParameters.properties[paramName].items = {
+					type: primitiveMappings[itemsType as PrimitiveTypeName],
+				};
+			}
 		}
+
+		toolParameters.properties[paramName].description = paramSchema.description as string;
+
 		if (typeof paramSchema.isOptional === 'function' && !paramSchema.isOptional()) {
 			requiredParams.push(paramName);
 		}
 	}
 
-	if (requiredParams.length > 0) {
-		toolParameters.required = requiredParams;
-	}
-
-	return{
-		type: 'function',
-		name,
-		description,
-		parameters: toolParameters || {},
-	};
+	toolParameters.required = requiredParams.length > 0 ? requiredParams : undefined;
+	return [toolParameters, requiredParams.length === Object.keys(shape).length];
 }
 
 export async function getConnectedTools(context: IExecuteFunctions): Promise<FunctionTool[]> {
@@ -66,22 +76,24 @@ export async function getConnectedTools(context: IExecuteFunctions): Promise<Fun
 				//for (const key of Object.keys(subTool)) {
 				//	context.logger.info(`Sub-tool property - ${key}: ${JSON.stringify((subTool as never)[key])}`);
 				//}
-				result.push(
-					await formatToOpenAIResponsesTool(
-						subTool.name,
-						subTool.description,
-						subTool.schema.shape as never,
-					),
-				);
+				const [parameters, strict] = await formatToParameters(context, subTool.schema.shape as never);
+				result.push({
+					type: 'function',
+					name: subTool.name,
+					description: subTool.description,
+					parameters,
+					strict,
+				});
 			}
 		} else {
-			result.push(
-				await formatToOpenAIResponsesTool(
-					tool.name,
-					tool.description,
-					tool.schema.shape as never,
-				),
-			);
+			const [parameters, strict] = await formatToParameters(context, tool.schema.shape as never);
+			result.push({
+				type: 'function',
+				name: tool.name,
+				description: tool.description,
+				parameters,
+				strict,
+			});
 		}
 	}
 
