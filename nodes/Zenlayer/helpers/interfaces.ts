@@ -7,7 +7,7 @@ export type ToolParameters = {
 		[key: string]: {
 			type?: string;
 			description?: string;
-			items?: { type: string };
+			items?: { type?: string };
 		};
 	};
 	required?: string[];

@@ -14,7 +14,7 @@ const primitiveMappings = {
 } as const;
 type PrimitiveTypeName = keyof typeof primitiveMappings;
 
-export async function formatToParameters(_context: IExecuteFunctions, shape: never): Promise<[ToolParameters, boolean]> {
+export async function formatToParameters(_context: IExecuteFunctions, shape: never): Promise<ToolParameters> {
 	const toolParameters: ToolParameters = {
 		type: 'object',
 		properties: {},
@@ -25,7 +25,7 @@ export async function formatToParameters(_context: IExecuteFunctions, shape: nev
 	for (const [paramName, paramSchema] of Object.entries<Record<string, unknown>>(shape)) {
 		toolParameters.properties[paramName] = {};
 
-		const typeName = (paramSchema as { _def: { typeName: string } })._def.typeName as string;
+		const typeName = (paramSchema as { _def: { typeName: string } })._def.typeName;
 		if (typeName === 'ZodAny') continue;
 
 		toolParameters.properties[paramName].type = primitiveMappings[typeName as PrimitiveTypeName];
@@ -54,7 +54,7 @@ export async function formatToParameters(_context: IExecuteFunctions, shape: nev
 	}
 
 	toolParameters.required = requiredParams.length > 0 ? requiredParams : undefined;
-	return [toolParameters, requiredParams.length === Object.keys(shape).length];
+	return toolParameters;
 }
 
 export async function getConnectedTools(context: IExecuteFunctions): Promise<FunctionTool[]> {
@@ -76,23 +76,23 @@ export async function getConnectedTools(context: IExecuteFunctions): Promise<Fun
 				//for (const key of Object.keys(subTool)) {
 				//	context.logger.info(`Sub-tool property - ${key}: ${JSON.stringify((subTool as never)[key])}`);
 				//}
-				const [parameters, strict] = await formatToParameters(context, subTool.schema.shape as never);
+				const parameters = await formatToParameters(context, subTool.schema.shape as never);
 				result.push({
 					type: 'function',
 					name: subTool.name,
 					description: subTool.description,
 					parameters,
-					strict,
+					strict: parameters.required?.length === Object.keys(subTool.schema.shape).length,
 				});
 			}
 		} else {
-			const [parameters, strict] = await formatToParameters(context, tool.schema.shape as never);
+			const parameters = await formatToParameters(context, tool.schema.shape as never);
 			result.push({
 				type: 'function',
 				name: tool.name,
 				description: tool.description,
 				parameters,
-				strict,
+				strict: parameters.required?.length === Object.keys(tool.schema.shape).length,
 			});
 		}
 	}
