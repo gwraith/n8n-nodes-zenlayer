@@ -1,6 +1,6 @@
 {
 	"name": "n8n-nodes-zenlayer",
-	"version": "0.1.5",
+	"version": "0.1.6",
 	"description": "n8n community node for Zenlayer API integration.",
 	"license": "MIT",
 	"homepage": "",
