@@ -1,20 +1,4 @@
 ////////////////////////////////////////////////////////////////////
-// Common Interface
-////////////////////////////////////////////////////////////////////
-export type ToolParameters = {
-	type: string;
-	properties: {
-		[key: string]: {
-			type?: string;
-			description?: string;
-			items?: { type?: string };
-		};
-	};
-	required?: string[];
-	additionalProperties?: boolean;
-};
-
-////////////////////////////////////////////////////////////////////
 // Chat Completion Interfaces
 ////////////////////////////////////////////////////////////////////
 export interface ChatCompletionContentPartText {
@@ -83,35 +67,6 @@ export interface ChatCompletionAssistantMessageParam {
 	tool_calls: ChatCompletionMessageFunctionToolCall[];
 }
 
-export interface ChatCompletionFunctionTool {
-	type: 'function';
-	function: {
-		name: string;
-		description: string;
-		parameters: ToolParameters;
-		strict?: boolean;
-	};
-}
-
-export interface ChatCompletionCustomTool {
-	type: 'custom';
-	custom: {
-		name: string;
-		description?: string;
-		format?:
-			| {
-					type: 'text';
-			  }
-			| {
-					type: 'grammar';
-					grammar: {
-						definition: string;
-						syntax: 'lark' | 'regex';
-					};
-			  };
-	};
-}
-
 export interface ResponseFormatJSONSchema {
 	type: 'json_schema';
 	json_schema: {
@@ -139,29 +94,8 @@ export interface ChatCompletionCreateParamsBase {
 	temperature?: number | null;
 	top_p?: number | null;
 	response_format?: ResponseFormatConfig;
-	tools?: Array<ChatCompletionFunctionTool | ChatCompletionCustomTool>;
-	tool_choice?: string;
-	parallel_tool_calls?: boolean;
 	store?: boolean | null;
 	verbosity?: 'low' | 'medium' | 'high' | null;
-}
-
-export type ChatCompletionChoice = {
-	index: number;
-	message: {
-		role: 'assistant';
-		content?: string;
-		tool_calls?: ChatCompletionMessageFunctionToolCall[];
-	};
-	finish_reason: 'stop' | 'length' | 'tool_calls' | 'content_filter' | 'function_call';
-};
-
-export interface ChatCompletion {
-	id: string;
-	object: 'chat.completion';
-	created: number;
-	model: string;
-	choices: ChatCompletionChoice[];
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -231,14 +165,6 @@ export interface ResponseReasoningItem {
 	status?: 'in_progress' | 'completed' | 'incomplete';
 }
 
-export interface FunctionTool {
-	type: 'function';
-	name: string;
-	description: string;
-	parameters: ToolParameters;
-	strict?: boolean;
-}
-
 export interface ResponseFormatTextJSONSchemaConfig {
 	name: string;
 	schema: { [key: string]: unknown };
@@ -269,34 +195,11 @@ export interface ResponseCreateParamsBase {
 	instructions?: string | null;
 	top_p?: number | null;
 	text?: ResponseTextConfig;
-	tools?: Array<FunctionTool>;
-	tool_choice?: string;
-	parallel_tool_calls?: boolean | null;
 	store?: boolean | null;
 	background?: boolean | null;
-	max_tool_calls?: number;
-}
-
-export interface ResponseOutputMessage {
-	role: 'assistant';
-	id: string;
-	type: 'message';
-	status: 'in_progress' | 'completed' | 'incomplete';
-	content: object;
-}
-
-export type ResponseOutputItem = ResponseReasoningItem | ResponseOutputMessage | ResponseFunctionToolCall;
-
-export interface Response {
-	id: string;
-	object: 'response';
-	created_at: number;
-	model: string;
-	output: ResponseOutputItem[];
 }
 
 ////////////////////////////////////////////////////////////////////
 // Combined Types
 ////////////////////////////////////////////////////////////////////
 export type ModelCreateParamsBase = ChatCompletionCreateParamsBase | ResponseCreateParamsBase;
-export type ModelResponse = Response | ChatCompletion;

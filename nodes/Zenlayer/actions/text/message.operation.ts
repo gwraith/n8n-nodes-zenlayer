@@ -8,20 +8,13 @@ import {
 	updateDisplayOptions,
 } from 'n8n-workflow';
 import {
-	ChatCompletion,
 	ChatCompletionCreateParamsBase,
-	ChatCompletionMessageFunctionToolCall,
 	ModelCreateParamsBase,
-	ModelResponse,
-	Response,
 	ResponseCreateParamsBase,
-	ResponseFunctionToolCall,
-	ResponseOutputItem,
 	ResponseTextConfig,
 } from '../../helpers/interfaces';
 import {modelList} from '../descriptions';
 import {apiRequest} from '../../transport';
-import {executeTool, getConnectedTools} from '../../helpers/utils';
 
 const jsonSchemaExample = `{
   "type": "object",
@@ -162,33 +155,12 @@ const properties: INodeProperties[] = [
 				},
 			},
 			{
-				displayName: 'Max Built-in Tool Calls',
-				name: 'maxToolCalls',
-				type: 'number',
-				default: 15,
-				description:
-					'The maximum number of total calls to built-in tools that can be processed in a response. This maximum number applies across all built-in tool calls, not per individual tool. Any further attempts to call a tool by the model will be ignored.',
-				displayOptions: {
-					show: {
-						'/requestMode': ['responses'],
-					},
-				},
-			},
-			{
 				displayName: 'Max Tokens',
 				name: 'maxTokens',
 				type: 'number',
 				default: -1,
 				description:
 					'The maximum number of tokens to generate in the completion. -1 for no limit.',
-			},
-			{
-				displayName: 'Parallel Tool Calls',
-				name: 'parallelToolCalls',
-				type: 'boolean',
-				default: true,
-				description:
-					'Whether to allow parallel tool calls. If true, the model can call multiple tools at once.',
 			},
 			{
 				displayName: 'Response Format',
@@ -296,17 +268,6 @@ const properties: INodeProperties[] = [
 				typeOptions: { maxValue: 2, minValue: 0, numberPrecision: 1 },
 			},
 			{
-				displayName: 'Tool Choice',
-				name: 'toolChoice',
-				type: 'options',
-				default: 'auto',
-				options: [
-					{ name: 'Auto', value: 'auto' },
-					{ name: 'None', value: 'none' },
-				],
-				description: 'Preference for tool usage during inference',
-			},
-			{
 				displayName: 'Top P',
 				name: 'topP',
 				type: 'number',
@@ -342,11 +303,9 @@ interface MessageOptions {
 		};
 	};
 	instructions?: string;
-	maxToolCalls?: number;
 	maxTokens?: number;
 	temperature?: number;
 	topP?: number;
-	parallelToolCalls?: boolean;
 	responseFormat?: {
 		textOptions: {
 			type: string;
@@ -358,7 +317,6 @@ interface MessageOptions {
 		};
 	};
 	store?: boolean;
-	toolChoice?: string;
 	verbosity?: string;
 }
 
@@ -371,61 +329,6 @@ const displayOptions = {
 
 export const description = updateDisplayOptions(displayOptions, properties);
 
-export async function handleToolLoop(
-	context: IExecuteFunctions,
-	mode: 'chat' | 'responses',
-	request: ModelCreateParamsBase,
-	response: ModelResponse,
-	callApi: (body: ModelCreateParamsBase) => Promise<ModelResponse>,
-) {
-	while (true) {
-		if (mode === 'chat') {
-			const calls = (response as ChatCompletion).choices[0].message?.tool_calls ?? [];
-			if (calls.length === 0) break;
-
-			(request as ChatCompletionCreateParamsBase).messages.push({
-				role: 'assistant',
-				tool_calls: calls,
-			});
-
-			for (const call of calls as ChatCompletionMessageFunctionToolCall[]) {
-				const result = await executeTool(
-					context,
-					call.id,
-					call.function.name,
-					call.function.arguments,
-				);
-				(request as ChatCompletionCreateParamsBase).messages.push({
-					role: 'tool',
-					tool_call_id: result.callId,
-					content: result.output,
-				});
-			}
-		} else {
-			const calls = (response as Response).output?.filter((o: ResponseOutputItem) => o.type === 'function_call' || o.type === 'reasoning') ?? [];
-			const hasFunctionCall = () => calls.some((item) => item.type === 'function_call');
-			if (calls.length === 0 || !hasFunctionCall()) break;
-			(request as ResponseCreateParamsBase).input.push.apply((request as ResponseCreateParamsBase).input, calls as ResponseFunctionToolCall[]);
-
-			for (const call of calls as ResponseFunctionToolCall[]) {
-				if (call.type !== 'function_call') continue;
-				const result = await executeTool(context, call.call_id as string, call.name, call.arguments);
-				(request as ResponseCreateParamsBase).input.push(
-					{
-						type: 'function_call_output',
-						call_id: result.callId,
-						output: result.output,
-					},
-				);
-			}
-		}
-
-		response = await callApi(request);
-	}
-
-	return response;
-}
-
 export async function createRequestBody(
 	ctx: IExecuteFunctions,
 	i: number,
@@ -433,8 +336,6 @@ export async function createRequestBody(
 	mode: string,
 	options: MessageOptions,
 ): Promise<ModelCreateParamsBase> {
-	const inputTools = await getConnectedTools(ctx);
-
 	const promptCollection = ctx.getNodeParameter('prompt', i, {}) as {
 		messages?: Array<{ role: string; content: string }>;
 	};
@@ -448,21 +349,10 @@ export async function createRequestBody(
 		const body: ChatCompletionCreateParamsBase = {
 			model,
 			messages,
-			parallel_tool_calls: options.parallelToolCalls as boolean,
 			store: options.store as boolean, // Chat Completions API default store to false
 			max_completion_tokens: options.maxTokens === -1 ? undefined : (options.maxTokens as number),
 			temperature: options.temperature as number,
 			top_p: options.topP as number,
-			tools: (inputTools ?? []).map((t) => ({
-				type: t.type ?? 'function',
-				function: {
-					name: t.name,
-					description: t.description,
-					parameters: t.parameters,
-				},
-				strict: t.strict ?? true,
-			})),
-			tool_choice: options.toolChoice as string,
 			verbosity: options.verbosity === 'medium' ? undefined : options.verbosity as 'low' | 'medium' | 'high',
 		};
 
@@ -502,21 +392,11 @@ export async function createRequestBody(
 		const body: ResponseCreateParamsBase = {
 			model,
 			input,
-			parallel_tool_calls: options.parallelToolCalls as boolean,
 			store: options.store as boolean,  // Responses API default store to true
 			instructions: options.instructions as string,
 			max_output_tokens: options.maxTokens === -1 ? undefined : (options.maxTokens as number),
 			temperature: options.temperature as number,
 			top_p: options.topP as number,
-			tools: (inputTools ?? []).map((t) => ({
-				type: t.type ?? 'function',
-				name: t.name,
-				description: t.description,
-				parameters: t.parameters,
-				strict: t.strict ?? true,
-			})),
-			tool_choice: options.toolChoice as string,
-			max_tool_calls: options.maxToolCalls as number,
 			background: options.backgroundMode?.values.enabled as boolean,
 		};
 
@@ -574,7 +454,7 @@ export async function execute(this: IExecuteFunctions, i: number): Promise<INode
 	const body = await createRequestBody(this, i, model, requestMode, options);
 	const endpoint = requestMode === 'chat' ? '/chat/completions' : '/responses';
 
-	let responseData = await apiRequest.call(this, 'POST', endpoint, {
+	const responseData = await apiRequest.call(this, 'POST', endpoint, {
 		body: body as unknown as IDataObject,
 	});
 
@@ -583,18 +463,6 @@ export async function execute(this: IExecuteFunctions, i: number): Promise<INode
 
 	}
 	*/
-
-	responseData = await handleToolLoop(
-		this,
-		requestMode as 'chat' | 'responses',
-		body,
-		responseData,
-		async (reqBody) => {
-			return await apiRequest.call(this, 'POST', endpoint, {
-				body: reqBody as unknown as IDataObject,
-			});
-		},
-	);
 
 	return [{ json: responseData, pairedItem: { item: i } }];
 }
